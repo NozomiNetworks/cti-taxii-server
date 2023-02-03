@@ -1,13 +1,16 @@
-from collections import OrderedDict
-from datetime import datetime, timedelta
+import os
 import importlib
 import json
+import jwt
 import logging
 import random
+import rollbar
+import rollbar.contrib.flask
 
+from collections import OrderedDict
+from datetime import datetime, timedelta
 from flask import Flask, Response, current_app, g
 from flask_httpauth import HTTPBasicAuth, HTTPTokenAuth, MultiAuth
-import jwt
 from werkzeug.security import check_password_hash
 
 from .exceptions import BackendError, ProcessingError
@@ -218,7 +221,7 @@ class TaxiiFlask(Flask):
         self.taxii_config = None
 
 
-def create_app(cfg):
+def create_app(cfg="docker_config.json"):
     app = TaxiiFlask(__name__)
 
     if isinstance(cfg, dict):
@@ -264,5 +267,17 @@ def create_app(cfg):
 
     register_blueprints(app)
     register_error_handlers(app)
+
+    @app.before_first_request
+    def init_rollbar():
+        environment = os.environ.get('ENVIRONMENT', 'development')
+        if environment != "development":
+            rollbar.init(
+                os.environ["ROLLBAR_TOKEN"],
+                environment,
+                root=os.path.dirname(os.path.realpath(__file__)),
+                allow_logging_basic_config=False,
+            )
+            got_request_exception.connect(rollbar.contrib.flask.report_exception, app)
 
     return app
