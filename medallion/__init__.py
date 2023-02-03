@@ -9,7 +9,7 @@ import rollbar.contrib.flask
 
 from collections import OrderedDict
 from datetime import datetime, timedelta
-from flask import Flask, Response, current_app, g
+from flask import Flask, Response, current_app, g, got_request_exception
 from flask_httpauth import HTTPBasicAuth, HTTPTokenAuth, MultiAuth
 from werkzeug.security import check_password_hash
 
