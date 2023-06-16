@@ -25,7 +25,7 @@ def get_long_description():
 setup(
     name="medallion",
     version=get_version(),
-    description="A TAXII 2.1 Server implementing required endpoints",
+    description="TAXII 2.0 Server implementing required endpoints",
     long_description=get_long_description(),
     long_description_content_type="text/x-rst",
     url="https://oasis-open.github.io/cti-documentation/",
@@ -48,18 +48,17 @@ setup(
     keywords="taxii taxii2 server json cti cyber threat intelligence",
     packages=find_packages(exclude=["*.test", "*.test.data"]),
     install_requires=[
-        "appdirs>=1.4.4",
-        "environ-config>=21.1",
         "flask>=0.12.1",
         "Flask-HTTPAuth",
-        "jsonmerge",
-        "packaging",
         "pytz",
         "six",
+        "pyjwt",
     ],
     entry_points={
         "console_scripts": [
             "medallion = medallion.scripts.run:main",
+            "medallion-generate-user-pass = medallion.scripts.generate_user_password:main",
+            "medallion-mongo-db-utils = medallion.scripts.auth_db_utils:main",
         ],
     },
     extras_require={
@@ -67,7 +66,6 @@ setup(
             "coverage",
             "pytest",
             "pytest-cov",
-            "pytest-subtests",
             "tox",
         ],
         "docs": [
