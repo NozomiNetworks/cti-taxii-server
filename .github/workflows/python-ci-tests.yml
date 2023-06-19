@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.6, 3.7, 3.8, 3.9]
+        python-version: [3.7, 3.8, 3.9]
 
     name: Python ${{ matrix.python-version }} Build
     steps:
@@ -27,9 +27,6 @@ jobs:
         pip install -U pip setuptools
         pip install tox-gh-actions
         pip install codecov
-    - name: Create test user
-      run: |
-        mongo admin --eval 'db.createUser({user:"root",pwd:"example",roles:[{role:"root",db:"admin"}]});'
     - name: Test with Tox
       run: |
         tox
