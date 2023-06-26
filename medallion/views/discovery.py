@@ -60,7 +60,10 @@ def get_api_root_information(api_root):
     # TODO: Check if user has access to objects in collection.
 #    validate_version_parameter_in_accept_header()
     api_root_exists(api_root)
-    root_info = current_app.medallion_backend.get_api_root_information(api_root)
+#    root_info = current_app.medallion_backend.get_api_root_information(api_root)
+    root_info = """
+{"api_roots": ["http://192.168.1.33:5000/root"], "contact": "sre@nozominetworks.com", "default": "http://192.168.1.33:5000/root/", "description": "Nozomi Networks TAXII Server", "title": "Nozomi Networkss TAXII Server"}
+"""
     return Response(
         response=json.dumps(root_info),
         status=200,
