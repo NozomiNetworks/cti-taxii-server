@@ -1,6 +1,6 @@
-from flask import Blueprint, Response, current_app, json
+from flask import Blueprint, Response, current_app, json, request
 
-from . import MEDIA_TYPE_TAXII_V21, validate_version_parameter_in_accept_header
+from . import MEDIA_TYPE_TAXII_V20, MEDIA_TYPE_TAXII_V21, validate_version_parameter_in_accept_header
 from .. import auth
 from ..exceptions import ProcessingError
 
@@ -14,6 +14,7 @@ def api_root_exists(api_root):
 
 
 @discovery_bp.route("/taxii2/", methods=["GET"])
+@discovery_bp.route("/taxii/", methods=["GET"])
 @auth.login_required
 def get_server_discovery():
     """
@@ -28,14 +29,15 @@ def get_server_discovery():
     # Having access to the discovery method is only related to having
     # credentials on the server. The metadata returned might be different
     # depending upon the credentials.
-    validate_version_parameter_in_accept_header()
+
+#    validate_version_parameter_in_accept_header()
     server_discovery = current_app.medallion_backend.server_discovery()
 
     if server_discovery:
         return Response(
             response=json.dumps(server_discovery),
             status=200,
-            mimetype=MEDIA_TYPE_TAXII_V21,
+            mimetype=MEDIA_TYPE_TAXII_V21 if 'version=2.1' in request.headers['Accept'] else MEDIA_TYPE_TAXII_V20,
         )
     raise ProcessingError("Server discovery information not available", 404)
 
