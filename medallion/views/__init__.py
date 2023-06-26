@@ -6,7 +6,7 @@ from ..exceptions import ProcessingError
 
 MEDIA_TYPE_TAXII_ANY = "application/taxii+json"
 MEDIA_TYPE_TAXII_V21 = "{media};version=2.1".format(media=MEDIA_TYPE_TAXII_ANY)
-MEDIA_TYPE_TAXII_V20 = "{media}; version=2.0".format(media=MEDIA_TYPE_TAXII_ANY)
+MEDIA_TYPE_TAXII_V20 = "application/vnd.oasis.taxii+json; version=2.0".format(media=MEDIA_TYPE_TAXII_ANY)
 
 
 def validate_version_parameter_in_accept_header():
