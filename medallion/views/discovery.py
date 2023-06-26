@@ -58,7 +58,7 @@ def get_api_root_information(api_root):
 
     """
     # TODO: Check if user has access to objects in collection.
-    validate_version_parameter_in_accept_header()
+#    validate_version_parameter_in_accept_header()
     api_root_exists(api_root)
     root_info = current_app.medallion_backend.get_api_root_information(api_root)
     return Response(
@@ -85,7 +85,7 @@ def get_status(api_root, status_id):
 
     """
     # TODO: Check if user has access to the Status resource.
-    validate_version_parameter_in_accept_header()
+#    validate_version_parameter_in_accept_header()
     api_root_exists(api_root)
     status = current_app.medallion_backend.get_status(api_root, status_id)
 
