@@ -64,7 +64,7 @@ def get_api_root_information(api_root):
     return Response(
         response=json.dumps(root_info),
         status=200,
-        mimetype=MEDIA_TYPE_TAXII_V21,
+        mimetype=MEDIA_TYPE_TAXII_V21 if 'version=2.1' in request.headers['Accept'] else MEDIA_TYPE_TAXII_V20,
     )
 
 
@@ -93,6 +93,6 @@ def get_status(api_root, status_id):
         return Response(
             response=json.dumps(status),
             status=200,
-            mimetype=MEDIA_TYPE_TAXII_V21,
+            mimetype=MEDIA_TYPE_TAXII_V21 if 'version=2.1' in request.headers['Accept'] else MEDIA_TYPE_TAXII_V20,
         )
     raise ProcessingError("Status '{}' not found".format(status_id), 404)
