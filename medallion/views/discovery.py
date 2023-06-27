@@ -67,7 +67,7 @@ def get_api_root_information(api_root):
 {"description": "root", "max_content_length": 9765625, "title": "root", "versions": ["application/taxii+json;version=2.0"]}
 """
     return Response(
-        response=json.dumps(root_info),
+        response=root_info,
         status=200,
         mimetype=MEDIA_TYPE_TAXII_V21 if 'version=2.1' in request.headers['Accept'] else MEDIA_TYPE_TAXII_V20,
     )
