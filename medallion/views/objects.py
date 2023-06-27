@@ -3,7 +3,7 @@ import re
 
 from flask import Blueprint, Response, current_app, json, request
 
-from . import MEDIA_TYPE_TAXII_V21, validate_version_parameter_in_accept_header
+from . import MEDIA_TYPE_TAXII_V20, MEDIA_TYPE_TAXII_V21, validate_version_parameter_in_accept_header
 from .. import auth
 from ..common import get_timestamp
 from ..exceptions import ProcessingError
@@ -105,7 +105,7 @@ def get_or_add_objects(api_root, collection_id):
     """
     # TODO: Check if user has access to read or write objects in collection - right now just check for permissions on the collection.
     request_time = get_timestamp()  # Can't I get this from the request itself?
-    validate_version_parameter_in_accept_header()
+#    validate_version_parameter_in_accept_header()
     api_root_exists(api_root)
     collection_exists(api_root, collection_id)
 
@@ -120,7 +120,7 @@ def get_or_add_objects(api_root, collection_id):
             response=json.dumps(objects),
             status=200,
             headers=headers,
-            mimetype=MEDIA_TYPE_TAXII_V21,
+            mimetype=MEDIA_TYPE_TAXII_V21 if 'version=2.1' in request.headers['Accept'] else MEDIA_TYPE_TAXII_V20,
         )
 
     elif request.method == "POST":
@@ -133,7 +133,7 @@ def get_or_add_objects(api_root, collection_id):
         return Response(
             response=json.dumps(status),
             status=202,
-            mimetype=MEDIA_TYPE_TAXII_V21,
+            mimetype=MEDIA_TYPE_TAXII_V21 if 'version=2.1' in request.headers['Accept'] else MEDIA_TYPE_TAXII_V20,
         )
 
 
@@ -157,7 +157,7 @@ def get_or_delete_object(api_root, collection_id, object_id):
 
     """
     # TODO: Check if user has access to read or write objects in collection - right now just check for permissions on the collection.
-    validate_version_parameter_in_accept_header()
+#    validate_version_parameter_in_accept_header()
     api_root_exists(api_root)
     collection_exists(api_root, collection_id)
 
@@ -172,7 +172,7 @@ def get_or_delete_object(api_root, collection_id, object_id):
                 response=json.dumps(objects),
                 status=200,
                 headers=headers,
-                mimetype=MEDIA_TYPE_TAXII_V21,
+                mimetype=MEDIA_TYPE_TAXII_V21 if 'version=2.1' in request.headers['Accept'] else MEDIA_TYPE_TAXII_V20,
             )
         raise ProcessingError("Object '{}' not found".format(object_id), 404)
     elif request.method == "DELETE":
@@ -182,7 +182,7 @@ def get_or_delete_object(api_root, collection_id, object_id):
         )
         return Response(
             status=200,
-            mimetype=MEDIA_TYPE_TAXII_V21,
+            mimetype=MEDIA_TYPE_TAXII_V21 if 'version=2.1' in request.headers['Accept'] else MEDIA_TYPE_TAXII_V20,
         )
 
 
