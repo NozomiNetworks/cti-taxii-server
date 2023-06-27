@@ -63,9 +63,7 @@ def get_api_root_information(api_root):
 #    validate_version_parameter_in_accept_header()
     api_root_exists(api_root)
 #    root_info = current_app.medallion_backend.get_api_root_information(api_root)
-    root_info = """
-{"description": "root", "max_content_length": 9765625, "title": "root", "versions": ["application/taxii+json;version=2.0"]}
-"""
+    root_info = """{"description": "root", "max_content_length": 9765625, "title": "root", "versions": ["application/taxii+json;version=2.0"]}"""
     return Response(
         response=root_info,
         status=200,
