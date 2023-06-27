@@ -35,7 +35,9 @@ def get_server_discovery():
 
     if server_discovery:
         return Response(
-            response=json.dumps(server_discovery),
+            response="""
+{"api_roots": ["http://192.168.1.33:5000/root"], "contact": "sre@nozominetworks.com", "default": "http://192.168.1.33:5000/root/", "description": "Nozomi Networks TAXII Server", "title": "Nozomi Networks TAXII Server"}
+"""
             status=200,
             mimetype=MEDIA_TYPE_TAXII_V21 if 'version=2.1' in request.headers['Accept'] else MEDIA_TYPE_TAXII_V20,
         )
