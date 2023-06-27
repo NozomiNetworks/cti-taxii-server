@@ -64,10 +64,10 @@ def get_api_root_information(api_root):
     api_root_exists(api_root)
 #    root_info = current_app.medallion_backend.get_api_root_information(api_root)
     root_info = """
-{"api_roots": ["http://192.168.1.33:5000/root"], "contact": "sre@nozominetworks.com", "default": "http://192.168.1.33:5000/root/", "description": "Nozomi Networks TAXII Server", "title": "Nozomi Networkss TAXII Server"}
+{"description": "root", "max_content_length": 9765625, "title": "root", "versions": ["application/taxii+json;version=2.0"]}
 """
     return Response(
-        response=root_info,
+        response=json.dumps(root_info),
         status=200,
         mimetype=MEDIA_TYPE_TAXII_V21 if 'version=2.1' in request.headers['Accept'] else MEDIA_TYPE_TAXII_V20,
     )
