@@ -120,7 +120,7 @@ def get_or_add_objects(api_root, collection_id):
             response=json.dumps(objects),
             status=200,
             headers=headers,
-            mimetype=MEDIA_TYPE_TAXII_V21 if 'version=2.1' in request.headers['Accept'] else MEDIA_TYPE_TAXII_V20,
+            mimetype=request.headers['Accept'],
         )
 
     elif request.method == "POST":
