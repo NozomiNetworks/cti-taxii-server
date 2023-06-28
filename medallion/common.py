@@ -98,6 +98,8 @@ def float_to_datetime(timestamp_float):
 
 def string_to_datetime(timestamp_string):
     """Convert string timestamp to datetime instance."""
+    if not timestamp_string.endswith("Z"):
+        timestamp_string += "Z"
     try:
         result = dt.datetime.strptime(timestamp_string, "%Y-%m-%dT%H:%M:%S.%fZ")
     except ValueError:
