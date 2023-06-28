@@ -1,6 +1,6 @@
 from flask import Blueprint, Response, current_app, json, request
 
-from . import MEDIA_TYPE_TAXII_V20, MEDIA_TYPE_TAXII_V21, validate_version_parameter_in_accept_header
+from . import MEDIA_TYPE_STIX_V20, MEDIA_TYPE_TAXII_V20, MEDIA_TYPE_TAXII_V21, validate_version_parameter_in_accept_header
 from .. import auth
 from .discovery import api_root_exists
 from .objects import collection_exists
@@ -61,5 +61,5 @@ def get_collection(api_root, collection_id):
     return Response(
         response=json.dumps(collection),
         status=200,
-        mimetype=MEDIA_TYPE_TAXII_V21 if 'version=2.1' in request.headers['Accept'] else MEDIA_TYPE_TAXII_V20,
+        mimetype=MEDIA_TYPE_TAXII_V21 if 'version=2.1' in request.headers['Accept'] else MEDIA_TYPE_STIX_V20,
     )
