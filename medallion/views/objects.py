@@ -109,6 +109,13 @@ def get_or_add_objects(api_root, collection_id):
     api_root_exists(api_root)
     collection_exists(api_root, collection_id)
 
+# Based https://docs.oasis-open.org/cti/taxii/v2.0/cs01/taxii-v2.0-cs01.html#_Toc496542716 and
+# https://docs.oasis-open.org/cti/taxii/v2.1/csprd02/taxii-v2.1-csprd02.html#_Toc16526039 we need
+# to respond with the following HTTP header:
+#
+# v2.0: Content-Type: application/vnd.oasis.stix+json; version=2.0
+# v2.1: Content-Type: application/taxii+json;version=2.1
+
     if request.method == "GET":
         permission_to_read(api_root, collection_id)
         limit = validate_limit_parameter()
@@ -116,8 +123,16 @@ def get_or_add_objects(api_root, collection_id):
             api_root, collection_id, request.args.to_dict(), limit
         )
 
+        # Client expects a response containing a STIX bundle, not an envelope for v2.0.
+        # This is a just a dirty hack to get the server to produce that v2.0 expects, and it should be rewritten properly.
+        if 'version=2.0' in request.headers['Accept']:
+            if "more" in objects:
+                objects.pop["more"]
+            objects["spec_version"] = "2.0"
+            objects["type"] = "bundle"
+
         return Response(
-            response=json.dumps(objects),
+            response=json.dumps(objects).replace("\"next\": \"", "\"id\": \"bundle--") if 'version=2.0' in request.headers['Accept'] else json.dumps(objects),
             status=200,
             headers=headers,
             mimetype=request.headers['Accept'],
