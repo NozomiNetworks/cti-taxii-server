@@ -1,5 +1,4 @@
 import logging
-
 from ...common import (
     create_bundle, datetime_to_float, datetime_to_string,
     datetime_to_string_stix, determine_spec_version, determine_version,
@@ -48,23 +47,10 @@ class MongoBackend(Backend):
         api_root_db = self.client[api_root]
         manifest_info = api_root_db["manifests"]
         collection_info = api_root_db["collections"]
-        entry = manifest_info.find_one(
-            {"_collection_id": collection_id, "id": new_obj["id"]},
-        )
 
         media_type_fmt = "application/vnd.oasis.stix+json; version={}"
         media_type = media_type_fmt.format(determine_spec_version(new_obj))
-
-        if entry:
-            if "modified" in new_obj:
-                entry["versions"].append(datetime_to_float(string_to_datetime(obj_version)))
-                manifest_info.update_one(
-                    {"_collection_id": collection_id, "id": new_obj["id"]},
-                    {"$set": {"versions": sorted(entry["versions"], reverse=True)}},
-                )
-            # If the new_obj is there, and it has no modified property,
-            # then it is immutable, and there is nothing to do.
-        else:
+        if True:
             manifest_info.insert_one(
                 {
                     "id": new_obj["id"],
@@ -223,18 +209,8 @@ class MongoBackend(Backend):
 
         try:
             for new_obj in objs["objects"]:
-                mongo_query = {"_collection_id": collection_id, "id": new_obj["id"]}
-                if "modified" in new_obj:
-                    mongo_query["modified"] = datetime_to_float(string_to_datetime(new_obj["modified"]))
-                existing_entry = objects_info.find_one(mongo_query)
-                obj_version = determine_version(new_obj, request_time)
-                if existing_entry:
-                    failures.append({
-                        "id": new_obj["id"],
-                        "message": "Unable to process object because identical version exist.",
-                    })
-                    failed += 1
-                else:
+                if True:
+                    obj_version = determine_version(new_obj, request_time)
                     new_obj.update({"_collection_id": collection_id})
                     if not all(prop in new_obj for prop in ("modified", "created")):
                         new_obj["_date_added"] = datetime_to_float(string_to_datetime(obj_version))  # Special case for un-versioned objects
