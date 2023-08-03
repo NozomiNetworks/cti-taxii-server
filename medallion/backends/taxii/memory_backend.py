@@ -304,7 +304,7 @@ class MemoryBackend(Backend):
                             else:
                                 failures.append({
                                     "id": new_obj["id"],
-                                    "message": "Unable to process object because identical version exist."
+                                    "message": "MEMORY_BACKEND: Unable to process object because identical version exist."
                                 })
                                 failed += 1
                     except Exception as e:
