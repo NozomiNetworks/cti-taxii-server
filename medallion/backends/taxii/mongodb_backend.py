@@ -1,4 +1,5 @@
 import logging
+
 from ...common import (
     create_bundle, datetime_to_float, datetime_to_string,
     datetime_to_string_stix, determine_spec_version, determine_version,
@@ -44,32 +45,7 @@ class MongoBackend(Backend):
 
     @catch_mongodb_error
     def _update_manifest(self, new_obj, api_root, collection_id, obj_version, request_time):
-        api_root_db = self.client[api_root]
-        manifest_info = api_root_db["manifests"]
-        collection_info = api_root_db["collections"]
-
-        media_type_fmt = "application/vnd.oasis.stix+json; version={}"
-        media_type = media_type_fmt.format(determine_spec_version(new_obj))
-        if True:
-            manifest_info.insert_one(
-                {
-                    "id": new_obj["id"],
-                    "date_added": datetime_to_float(request_time),
-                    "versions": [datetime_to_float(string_to_datetime(obj_version))],
-                    "media_types": [media_type],
-                    "_collection_id": collection_id,
-                    "_type": new_obj["type"],
-                },
-            )
-
-        # update media_types in collection if a new one is present.
-        info = collection_info.find_one({"id": collection_id})
-        if media_type not in info["media_types"]:
-            info["media_types"].append(media_type)
-            collection_info.update_one(
-                {"id": collection_id},
-                {"$set": {"media_types": info["media_types"]}}
-            )
+        pass
 
     @catch_mongodb_error
     def server_discovery(self):
@@ -208,20 +184,29 @@ class MongoBackend(Backend):
         failures = []
 
         try:
+            bulk_operations = []
+            manifest_objs = []
             for new_obj in objs["objects"]:
-                if True:
-                    obj_version = determine_version(new_obj, request_time)
-                    new_obj.update({"_collection_id": collection_id})
-                    if not all(prop in new_obj for prop in ("modified", "created")):
-                        new_obj["_date_added"] = datetime_to_float(string_to_datetime(obj_version))  # Special case for un-versioned objects
-                    if "modified" in new_obj:
-                        new_obj["modified"] = datetime_to_float(string_to_datetime(new_obj["modified"]))
-                    if "created" in new_obj:
-                        new_obj["created"] = datetime_to_float(string_to_datetime(new_obj["created"]))
-                    objects_info.insert_one(new_obj)
-                    self._update_manifest(new_obj, api_root, collection_id, obj_version, request_time)
-                    successes.append(new_obj["id"])
-                    succeeded += 1
+                obj_version = determine_version(new_obj, request_time)
+                new_obj.update({"_collection_id": collection_id})
+
+                if not all(prop in new_obj for prop in ("modified", "created")):
+                    new_obj["_date_added"] = datetime_to_float(string_to_datetime(obj_version))
+                if "modified" in new_obj:
+                    new_obj["modified"] = datetime_to_float(string_to_datetime(new_obj["modified"]))
+                if "created" in new_obj:
+                    new_obj["created"] = datetime_to_float(string_to_datetime(new_obj["created"]))
+
+                bulk_operations.append({
+                    'insert_one': {'document': new_obj}
+                })
+
+                # not needed
+                successes.append(new_obj['id'])
+                succeeded += 1
+                manifest_objs.append(new_obj)
+
+            self._update_manifest(manifest_objs, api_root, collection_id, request_time)
         except Exception as e:
             log.exception(e)
             raise ProcessingError("While processing supplied content, an error occurred", 422, e)
