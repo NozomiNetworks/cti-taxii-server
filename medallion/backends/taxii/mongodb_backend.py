@@ -1,5 +1,5 @@
 import logging
-
+import time
 from ...common import (
     create_bundle, datetime_to_float, datetime_to_string,
     datetime_to_string_stix, determine_spec_version, determine_version,
@@ -10,7 +10,7 @@ from ...filters.mongodb_filter import MongoDBFilter
 from .base import Backend
 
 try:
-    from pymongo import ASCENDING, MongoClient
+    from pymongo import ASCENDING, MongoClient, InsertOne
     from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 except ImportError:
     raise ImportError("'pymongo' package is required to use this module.")
@@ -45,7 +45,47 @@ class MongoBackend(Backend):
 
     @catch_mongodb_error
     def _update_manifest(self, new_obj, api_root, collection_id, obj_version, request_time):
-        pass
+        start_time_manifest = time.time()
+        api_root_db = self.client[api_root]
+        manifest_info = api_root_db["manifests"]
+        collection_info = api_root_db["collections"]
+        entry = manifest_info.find_one(
+            {"_collection_id": collection_id, "id": new_obj["id"]},
+        )
+
+        media_type_fmt = "application/vnd.oasis.stix+json; version={}"
+        media_type = media_type_fmt.format(determine_spec_version(new_obj))
+
+        if entry:
+            if "modified" in new_obj:
+                entry["versions"].append(datetime_to_float(string_to_datetime(obj_version)))
+                manifest_info.update_one(
+                    {"_collection_id": collection_id, "id": new_obj["id"]},
+                    {"$set": {"versions": sorted(entry["versions"], reverse=True)}},
+                )
+            # If the new_obj is there, and it has no modified property,
+            # then it is immutable, and there is nothing to do.
+        else:
+            manifest_info.insert_one(
+                {
+                    "id": new_obj["id"],
+                    "date_added": datetime_to_float(request_time),
+                    "versions": [datetime_to_float(string_to_datetime(obj_version))],
+                    "media_types": [media_type],
+                    "_collection_id": collection_id,
+                    "_type": new_obj["type"],
+                },
+            )
+
+        # update media_types in collection if a new one is present.
+        info = collection_info.find_one({"id": collection_id})
+        if media_type not in info["media_types"]:
+            info["media_types"].append(media_type)
+            collection_info.update_one(
+                {"id": collection_id},
+                {"$set": {"media_types": info["media_types"]}}
+            )
+        with open('manifest_timings', 'a') as f: f.write('{:.3f}\n'.format(time.time() - start_time_manifest))
 
     @catch_mongodb_error
     def server_discovery(self):
@@ -175,6 +215,7 @@ class MongoBackend(Backend):
 
     @catch_mongodb_error
     def add_objects(self, api_root, collection_id, objs, request_time):
+        start_time_object = time.time()
         api_root_db = self.client[api_root]
         objects_info = api_root_db["objects"]
         failed = 0
@@ -182,31 +223,26 @@ class MongoBackend(Backend):
         pending = 0
         successes = []
         failures = []
+        bulk_upload = []
 
+        for new_obj in objs["objects"]:
+            obj_version = determine_version(new_obj, request_time)
+            if not all(prop in new_obj for prop in ("modified", "created")):
+                new_obj["_date_added"] = datetime_to_float(string_to_datetime(obj_version))  # Special case for un-versioned objects
+            if "modified" in new_obj:
+                new_obj["modified"] = datetime_to_float(string_to_datetime(new_obj["modified"]))
+            if "created" in new_obj:
+                new_obj["created"] = datetime_to_float(string_to_datetime(new_obj["created"]))
+
+            new_obj.update({"_collection_id": collection_id})
+            bulk_upload.append(InsertOne(new_obj))
+            self._update_manifest(new_obj, api_root, collection_id, obj_version, request_time)
+            successes.append(new_obj["id"])
+            succeeded += 1
         try:
-            bulk_operations = []
-            manifest_objs = []
-            for new_obj in objs["objects"]:
-                obj_version = determine_version(new_obj, request_time)
-                new_obj.update({"_collection_id": collection_id})
-
-                if not all(prop in new_obj for prop in ("modified", "created")):
-                    new_obj["_date_added"] = datetime_to_float(string_to_datetime(obj_version))
-                if "modified" in new_obj:
-                    new_obj["modified"] = datetime_to_float(string_to_datetime(new_obj["modified"]))
-                if "created" in new_obj:
-                    new_obj["created"] = datetime_to_float(string_to_datetime(new_obj["created"]))
-
-                bulk_operations.append({
-                    'insert_one': {'document': new_obj}
-                })
-
-                # not needed
-                successes.append(new_obj['id'])
-                succeeded += 1
-                manifest_objs.append(new_obj)
-
-            self._update_manifest(manifest_objs, api_root, collection_id, request_time)
+            start_bulk_upload = time.time()
+            objects_info.bulk_write(bulk_upload, ordered=False)
+            with open('bulk_upload_timings', 'a') as f: f.write('{:.3f}\n'.format(time.time() - start_bulk_upload))
         except Exception as e:
             log.exception(e)
             raise ProcessingError("While processing supplied content, an error occurred", 422, e)
@@ -217,6 +253,7 @@ class MongoBackend(Backend):
         )
         api_root_db["status"].insert_one(status)
         status.pop("_id", None)
+        with open('objects_timings', 'a') as f: f.write('{:.3f}\n'.format(time.time() - start_time_object))
         return status
 
     @catch_mongodb_error
