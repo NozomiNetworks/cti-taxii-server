@@ -49,6 +49,14 @@ def validate_version_parameter_in_content_type_header():
     if found is False:
         raise ProcessingError("Media type in the Content-Type header is invalid or not found", 415)
 
+def permission_to_read_and_write(api_root, collection_id):
+    collection_info = current_app.medallion_backend.get_collection(api_root, collection_id)
+    if collection_info["can_read"] is False and collection_info["can_write"] is False:
+        raise ProcessingError("Collection '{}' not found".format(collection_id), 404)
+    if collection_info["can_write"] is False:
+        raise ProcessingError("Forbidden to write collection '{}'".format(collection_id), 403)
+    if collection_info["can_read"] is False:
+        raise ProcessingError("Forbidden to read collection '{}'".format(collection_id), 403)
 
 def validate_size_in_request_body(api_root):
     api_root = current_app.medallion_backend.get_api_root_information(api_root)
@@ -77,6 +85,19 @@ def get_range_request_from_headers():
     else:
         return 0, current_app.taxii_config["max_page_size"] - 1
 
+
+def validate_limit_parameter():
+    max_page = current_app.taxii_config["max_page_size"]
+    limit = request.args.get("limit", max_page)
+    try:
+        limit = int(limit)
+    except ValueError:
+        raise ProcessingError("The server did not understand the request or filter parameters", 400)
+    if limit <= 0:
+        raise ProcessingError("The limit parameter cannot be negative or zero", 400)
+    if limit > max_page:
+        limit = max_page
+    return limit
 
 def get_custom_headers(headers, api_root, collection_id, start, end):
     try:
@@ -177,6 +198,54 @@ def get_or_add_objects(api_root, collection_id):
             status=202,
             mimetype=MEDIA_TYPE_TAXII_V20,
         )
+
+    @objects_bp.route("/<string:api_root>/collections/<string:collection_id>/objects/<string:object_id>/",
+                      methods=["GET", "DELETE"])
+    @auth.login_required
+    def get_or_delete_object(api_root, collection_id, object_id):
+        """
+        Defines TAXII API - Collections:
+            Get Object section (`5.6 <https://docs.oasis-open.org/cti/taxii/v2.1/cs01/taxii-v2.1-cs01.html#_Toc31107541>`__)
+            and Delete Object section (`5.7 <https://docs.oasis-open.org/cti/taxii/v2.1/cs01/taxii-v2.1-cs01.html#_Toc31107542>`__)
+
+        Args:
+            api_root (str): the base URL of the API Root
+            collection_id (str): the `identifier` of the Collection being requested
+            object_id (str): the `identifier` of the object being requested
+
+        Returns:
+            resource:
+                GET -> An Envelope Resource upon successful requests.
+                DELETE -> Upon successful request nothing (status code 200).
+
+        """
+        # TODO: Check if user has access to read or write objects in collection - right now just check for permissions on the collection.
+        api_root_exists(api_root)
+        collection_exists(api_root, collection_id)
+
+        if request.method == "GET":
+            permission_to_read(api_root, collection_id)
+            limit = validate_limit_parameter()
+            objects, headers = current_app.medallion_backend.get_object(
+                api_root, collection_id, object_id, request.args.to_dict(), ("version", "spec_version"), limit
+            )
+            if objects or request.args:
+                return Response(
+                    response=json.dumps(objects),
+                    status=200,
+                    headers=headers,
+                    mimetype=MEDIA_TYPE_STIX_V20,
+                )
+            raise ProcessingError("Object '{}' not found".format(object_id), 404)
+        elif request.method == "DELETE":
+            permission_to_read_and_write(api_root, collection_id)
+            current_app.medallion_backend.delete_object(
+                api_root, collection_id, object_id, request.args.to_dict(), ("version", "spec_version"),
+            )
+            return Response(
+                status=200,
+                mimetype=MEDIA_TYPE_STIX_V20,
+            )
 
 
 @objects_bp.route("/<string:api_root>/collections/<string:collection_id>/objects/<string:object_id>/", methods=["GET"])
