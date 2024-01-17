@@ -391,6 +391,7 @@ def string_to_datetime(timestamp_string):
 
     return dt.datetime.strptime(timestamp_string, "%Y-%m-%dT%H:%M:%SZ")
 
+
 def find_att(obj):
     """
     Used for finding the version attribute of an ambiguous object. Manifests

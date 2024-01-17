@@ -49,6 +49,7 @@ def validate_version_parameter_in_content_type_header():
     if found is False:
         raise ProcessingError("Media type in the Content-Type header is invalid or not found", 415)
 
+
 def permission_to_read_and_write(api_root, collection_id):
     collection_info = current_app.medallion_backend.get_collection(api_root, collection_id)
     if collection_info["can_read"] is False and collection_info["can_write"] is False:
@@ -57,6 +58,7 @@ def permission_to_read_and_write(api_root, collection_id):
         raise ProcessingError("Forbidden to write collection '{}'".format(collection_id), 403)
     if collection_info["can_read"] is False:
         raise ProcessingError("Forbidden to read collection '{}'".format(collection_id), 403)
+
 
 def validate_size_in_request_body(api_root):
     api_root = current_app.medallion_backend.get_api_root_information(api_root)
@@ -98,6 +100,7 @@ def validate_limit_parameter():
     if limit > max_page:
         limit = max_page
     return limit
+
 
 def get_custom_headers(headers, api_root, collection_id, start, end):
     try:
