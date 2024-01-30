@@ -223,8 +223,9 @@ def get_or_add_objects(api_root, collection_id):
 
         """
         # TODO: Check if user has access to read or write objects in collection - right now just check for permissions on the collection.
-        api_root_exists(api_root)
-        collection_exists(api_root, collection_id)
+        print(f"API root: {api_root}, COLLECTION ID: {collection_id}")
+        # api_root_exists(api_root)
+        # collection_exists(api_root, collection_id)
 
         if request.method == "GET":
             permission_to_read(api_root, collection_id)
@@ -241,7 +242,7 @@ def get_or_add_objects(api_root, collection_id):
                 )
             raise ProcessingError("Object '{}' not found".format(object_id), 404)
         elif request.method == "DELETE":
-            permission_to_read_and_write(api_root, collection_id)
+            # permission_to_read_and_write(api_root, collection_id)
             current_app.medallion_backend.delete_object(
                 api_root, collection_id, object_id, request.args.to_dict(), ("version", "spec_version"),
             )
