@@ -364,8 +364,7 @@ class MemoryBackend(Backend):
             objs, nex, headers = full_filter.process_filter(
                 objs,
                 allowed_filters,
-                manifests,
-                None
+                manifests
             )
 
             if len(objs) == 0:

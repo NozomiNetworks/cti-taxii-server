@@ -294,19 +294,20 @@ class MongoBackend(Backend):
         # Currently it will delete the object and the matching manifest from the backend
         full_filter = MongoDBFilter(
             filter_args,
-            {"_collection_id": {"$eq": collection_id}, "id": {"$eq": object_id}},
+            {"_collection_id": collection_id, "id": object_id},
             allowed_filters,
         )
         count, objects_found = full_filter.process_filter(
             objects_info,
             allowed_filters,
-            "raw"
+            {"mongodb_collection": api_root_db["manifests"], "_collection_id": collection_id}
         )
         if objects_found:
             for obj in objects_found:
-                obj_version = obj["_manifest"]["version"]
+                logging.warning(f"CONTENTS OF OBJ: {obj}")
+                # obj_version = obj["_manifest"]["version"]
                 objects_info.delete_one(
-                    {"_collection_id": collection_id, "id": object_id, "_manifest.version": obj_version}
+                    {"_collection_id": collection_id, "id": object_id}  # "_manifest.version": obj_version}
                 )
         else:
             raise ProcessingError("Object '{}' not found".format(object_id), 404)
