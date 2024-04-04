@@ -268,8 +268,10 @@ def create_app(cfg="docker_config.json"):
     register_blueprints(app)
     register_error_handlers(app)
 
-    @app.before_first_request
+    @app.before_request
     def init_rollbar():
+        app.before_request_funcs[None].remove(init_rollbar)
+
         environment = os.environ.get('ENVIRONMENT', 'development')
         if environment != "development":
             rollbar.init(
