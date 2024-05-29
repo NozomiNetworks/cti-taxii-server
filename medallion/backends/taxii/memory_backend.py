@@ -98,7 +98,7 @@ class MemoryBackend(Backend):
 
     @staticmethod
     def _timestamp2filename(timestamp):
-        """Takes timestamp string and removes some characters for normalized name"""
+        """Takes timestamp string and removes some characters for normalized name."""
         ts = re.sub(r"[-T:\.Z ]", "", timestamp)
         return ts
 
