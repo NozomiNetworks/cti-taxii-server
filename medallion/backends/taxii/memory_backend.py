@@ -1,10 +1,10 @@
 import codecs
 import copy
+import datetime as dt
 import json
 import logging
 import os
 import re
-import datetime as dt
 
 from six import string_types
 
