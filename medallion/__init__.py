@@ -1,16 +1,16 @@
-import os
-import importlib
-import json
-import jwt
-import logging
-import random
-import rollbar
-import rollbar.contrib.flask
-
 from collections import OrderedDict
 from datetime import datetime, timedelta
+import importlib
+import json
+import logging
+import os
+import random
+
 from flask import Flask, Response, current_app, g, got_request_exception
 from flask_httpauth import HTTPBasicAuth, HTTPTokenAuth, MultiAuth
+import jwt
+import rollbar
+import rollbar.contrib.flask
 from werkzeug.security import check_password_hash
 
 from .exceptions import BackendError, ProcessingError
@@ -100,10 +100,7 @@ def set_backend_config(flask_application_instance, config_info):
 
 
 def register_blueprints(app):
-    from medallion.views import collections
-    from medallion.views import discovery
-    from medallion.views import manifest
-    from medallion.views import objects
+    from medallion.views import collections, discovery, manifest, objects
     from medallion.views.others.auth import auth_bp
     from medallion.views.others.healthcheck import healthecheck_bp
 
@@ -268,8 +265,9 @@ def create_app(cfg="docker_config.json"):
     register_blueprints(app)
     register_error_handlers(app)
 
-    @app.before_first_request
+    @app.before_request
     def init_rollbar():
+        app.before_request_funcs[None].remove(init_rollbar)
         environment = os.environ.get('ENVIRONMENT', 'development')
         if environment != "development":
             rollbar.init(

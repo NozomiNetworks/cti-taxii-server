@@ -1,5 +1,6 @@
 import codecs
 import copy
+import datetime as dt
 import json
 import logging
 import os
@@ -97,7 +98,7 @@ class MemoryBackend(Backend):
 
     @staticmethod
     def _timestamp2filename(timestamp):
-        """Takes timestamp string and removes some characters for normalized name"""
+        """Takes timestamp string and removes some characters for normalized name."""
         ts = re.sub(r"[-T:\.Z ]", "", timestamp)
         return ts
 
@@ -343,3 +344,71 @@ class MemoryBackend(Backend):
                 manifests
             )
             return create_bundle(objs)
+
+    def delete_object(self, api_root, collection_id, obj_id, filter_args, allowed_filters):
+        if api_root in self.data:
+            api_info = self._get(api_root)
+            collections = api_info.get("collections", [])
+            objs = []
+            manifests = []
+            for collection in collections:
+                if "id" in collection and collection_id == collection["id"]:
+                    coll = collection.get("objects", [])
+                    for obj in coll:
+                        if obj_id == obj["id"]:
+                            objs.append(obj)
+                    manifests = collection.get("manifest", [])
+                    break
+
+            full_filter = BasicFilter(filter_args)
+            objs, nex, headers = full_filter.process_filter(
+                objs,
+                allowed_filters,
+                manifests
+            )
+
+            if len(objs) == 0:
+                raise ProcessingError("Object '{}' not found".format(obj_id), 404)
+
+            for obj in objs:
+                if obj in coll:
+                    coll.remove(obj)
+                    obj_time = find_att(obj)
+                    for man in manifests:
+                        if obj["id"] == man["id"] and obj_time == find_att(man):
+                            manifests.remove(man)
+                            break
+
+
+def string_to_datetime(timestamp_string):
+    """Convert string timestamp to datetime instance."""
+    if not timestamp_string.endswith('Z'):
+        timestamp_string = f"{timestamp_string}Z"
+
+    if '.' in timestamp_string:
+        return dt.datetime.strptime(timestamp_string, "%Y-%m-%dT%H:%M:%S.%fZ")
+
+    return dt.datetime.strptime(timestamp_string, "%Y-%m-%dT%H:%M:%SZ")
+
+
+def find_att(obj):
+    """
+    Used for finding the version attribute of an ambiguous object. Manifests
+    use the "version" field, but objects will use "modified", or if that's not
+    available, the "created" field.
+
+    Args:
+        obj (dict): manifest or stix object
+
+    Returns:
+        string value of the field from the object to use for versioning
+
+    """
+    if "version" in obj:
+        return string_to_datetime(obj["version"])
+    elif "modified" in obj:
+        return string_to_datetime(obj["modified"])
+    elif "created" in obj:
+        return string_to_datetime(obj["created"])
+    else:
+        return string_to_datetime(obj["_date_added"])
