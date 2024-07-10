@@ -210,7 +210,7 @@ def set_trace_id():
 
 @app.before_request
 def log_request_info():
-    app.logger.debug(f"Headers: {request.headers}")
+    app.logger.info(f"Headers: {request.headers}")
 
 def log_after_request(response):
     current_app.logger.info(response.status)
