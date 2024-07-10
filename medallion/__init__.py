@@ -18,6 +18,8 @@ from .log import default_request_formatter
 from .version import __version__  # noqa
 from .views import MEDIA_TYPE_TAXII_V20
 
+app = Flask(__name__)
+
 # Console Handler for medallion messages
 ch = logging.StreamHandler()
 ch.setFormatter(default_request_formatter())
