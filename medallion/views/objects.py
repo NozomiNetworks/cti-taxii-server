@@ -12,7 +12,7 @@ from .. import auth
 from ..common import get_timestamp
 from ..exceptions import ProcessingError
 from .discovery import api_root_exists
-from .log import default_request_formatter
+from ..log import default_request_formatter
 
 import logging
 
