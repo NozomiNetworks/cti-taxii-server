@@ -26,6 +26,7 @@ ch.setFormatter(default_request_formatter())
 log = logging.getLogger(__name__)
 log.addHandler(ch)
 
+
 def permission_to_read(api_root, collection_id):
     collection_info = current_app.medallion_backend.get_collection(
         api_root, collection_id
