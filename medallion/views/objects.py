@@ -12,6 +12,8 @@ from .. import auth
 from ..common import get_timestamp
 from ..exceptions import ProcessingError
 from .discovery import api_root_exists
+from .log import default_request_formatter
+
 import logging
 
 objects_bp = Blueprint("objects", __name__)
