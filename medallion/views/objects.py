@@ -12,8 +12,19 @@ from .. import auth
 from ..common import get_timestamp
 from ..exceptions import ProcessingError
 from .discovery import api_root_exists
+from ..log import default_request_formatter
+
+import logging
 
 objects_bp = Blueprint("objects", __name__)
+
+# Console Handler for medallion messages
+ch = logging.StreamHandler()
+ch.setFormatter(default_request_formatter())
+
+# Module-level logger
+log = logging.getLogger(__name__)
+log.addHandler(ch)
 
 
 def permission_to_read(api_root, collection_id):
@@ -111,6 +122,7 @@ def get_range_request_from_headers():
                 end_index = start_index + (
                     current_app.taxii_config["max_page_size"] - 1
                 )
+            log.info(f"Request range {start_index}-{end_index}")
             return start_index, end_index
         except (AttributeError, ValueError) as e:
             raise ProcessingError("Bad Range header supplied", 400, e)

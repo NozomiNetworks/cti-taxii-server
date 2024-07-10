@@ -26,12 +26,12 @@ ch.setFormatter(default_request_formatter())
 log = logging.getLogger(__name__)
 log.addHandler(ch)
 
-jwt_auth = HTTPTokenAuth(scheme='JWT')
+jwt_auth = HTTPTokenAuth(scheme="JWT")
 basic_auth = HTTPBasicAuth()
-token_auth = HTTPTokenAuth(scheme='Token')
+token_auth = HTTPTokenAuth(scheme="Token")
 auth = MultiAuth(None)
 
-DEFAULT_TAXII = {'max_page_size': 100}
+DEFAULT_TAXII = {"max_page_size": 100}
 
 DEFAULT_AUTH = {
     "module": "medallion.backends.auth.memory_auth",
@@ -41,37 +41,39 @@ DEFAULT_AUTH = {
     },
     "api_keys": {
         "123456": "admin",
-    }
+    },
 }
 
 DEFAULT_BACKEND = {
     "module": "medallion.backends.taxii.memory_backend",
     "module_class": "MemoryBackend",
-    "filename": "./medallion/test/data/memory_backend_no_data.json"
+    "filename": "./medallion/test/data/memory_backend_no_data.json",
 }
 
 
 def set_multi_auth_config(main_auth, *additional_auth):
-    type_to_app = {
-        'jwt': jwt_auth,
-        'api_key': token_auth,
-        'basic': basic_auth
-    }
+    type_to_app = {"jwt": jwt_auth, "api_key": token_auth, "basic": basic_auth}
 
     auth.main_auth = type_to_app[main_auth]
     additional_auth = [a for a in additional_auth if a != main_auth]
-    auth.additional_auth = tuple(type_to_app[a] for a in tuple(OrderedDict.fromkeys(additional_auth)))
+    auth.additional_auth = tuple(
+        type_to_app[a] for a in tuple(OrderedDict.fromkeys(additional_auth))
+    )
 
 
 def set_auth_config(flask_application_instance, config_info):
     with flask_application_instance.app_context():
-        log.debug("Registering medallion users configuration into {}".format(current_app))
+        log.debug(
+            "Registering medallion users configuration into {}".format(current_app)
+        )
         flask_application_instance.auth_backend = connect_to_backend(config_info)
 
 
 def set_taxii_config(flask_application_instance, config_info):
     with flask_application_instance.app_context():
-        log.debug("Registering medallion taxii configuration into {}".format(current_app))
+        log.debug(
+            "Registering medallion taxii configuration into {}".format(current_app)
+        )
         flask_application_instance.taxii_config = config_info
 
 
@@ -160,16 +162,15 @@ def register_error_handlers(app):
 
 
 def jwt_encode(username):
-    exp = datetime.utcnow() + timedelta(minutes=int(current_app.config.get("JWT_EXP", 60)))
-    payload = {
-        'exp': exp,
-        'user': username
-    }
-    return jwt.encode(payload, current_app.config['SECRET_KEY'], algorithm='HS256')
+    exp = datetime.utcnow() + timedelta(
+        minutes=int(current_app.config.get("JWT_EXP", 60))
+    )
+    payload = {"exp": exp, "user": username}
+    return jwt.encode(payload, current_app.config["SECRET_KEY"], algorithm="HS256")
 
 
 def jwt_decode(token):
-    return jwt.decode(token, current_app.config['SECRET_KEY'], algorithms=['HS256'])
+    return jwt.decode(token, current_app.config["SECRET_KEY"], algorithms=["HS256"])
 
 
 @jwt_auth.verify_token
@@ -177,9 +178,11 @@ def verify_token(token):
     current_dt = datetime.utcnow()
     try:
         decoded_token = jwt_decode(token)
-        is_authorized = datetime.utcfromtimestamp(float(decoded_token['exp'])) > current_dt
+        is_authorized = (
+            datetime.utcfromtimestamp(float(decoded_token["exp"])) > current_dt
+        )
         if is_authorized:
-            g.user = decoded_token['user']
+            g.user = decoded_token["user"]
     except jwt.exceptions.InvalidTokenError:
         is_authorized = False
 
@@ -190,7 +193,9 @@ def verify_token(token):
 def verify_basic_auth(username, password):
     password_hash = current_app.auth_backend.get_password_hash(username)
     g.user = username
-    return False if password_hash is None else check_password_hash(password_hash, password)
+    return (
+        False if password_hash is None else check_password_hash(password_hash, password)
+    )
 
 
 @token_auth.verify_token
@@ -227,9 +232,9 @@ def create_app(cfg="docker_config.json"):
         with open(cfg, "r") as f:
             configuration = json.load(f)
 
-    app.config.from_mapping(**configuration.get('flask', {}))
+    app.config.from_mapping(**configuration.get("flask", {}))
 
-    app.logger = logging.getLogger('medallion-app')
+    app.logger = logging.getLogger("medallion-app")
     app.logger.setLevel(logging.INFO)
     handler = logging.StreamHandler()
     handler.setFormatter(default_request_formatter())
@@ -237,12 +242,12 @@ def create_app(cfg="docker_config.json"):
 
     if not app.debug:
         # Shut up the werkzeug logger unless debugging.
-        logging.getLogger('werkzeug').setLevel(logging.CRITICAL)
+        logging.getLogger("werkzeug").setLevel(logging.CRITICAL)
 
     _ = app.before_request(set_trace_id)
     _ = app.after_request(log_after_request)
 
-    set_multi_auth_config(*configuration.get('multi-auth', ('basic',)))
+    set_multi_auth_config(*configuration.get("multi-auth", ("basic",)))
 
     set_auth_config(app, configuration.get("auth", DEFAULT_AUTH))
 
@@ -268,7 +273,7 @@ def create_app(cfg="docker_config.json"):
     @app.before_request
     def init_rollbar():
         app.before_request_funcs[None].remove(init_rollbar)
-        environment = os.environ.get('ENVIRONMENT', 'development')
+        environment = os.environ.get("ENVIRONMENT", "development")
         if environment != "development":
             rollbar.init(
                 os.environ["ROLLBAR_TOKEN"],
