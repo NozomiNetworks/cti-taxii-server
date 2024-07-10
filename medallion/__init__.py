@@ -208,10 +208,6 @@ def set_trace_id():
     g.trace_id = "{:08x}".format(random.randrange(0, 0x100000000))
 
 
-@app.before_request
-def log_request_info():
-    app.logger.info(f"Headers: {request.headers}")
-
 def log_after_request(response):
     current_app.logger.info(response.status)
     return response
