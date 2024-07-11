@@ -294,6 +294,7 @@ def get_or_delete_object(api_root, collection_id, object_id):
 
     """
     # TODO: Check if user has access to read or write objects in collection - right now just check for permissions on the collection.
+    log.info(f"current user: {auth.current_user()}")
     api_root_exists(api_root)
     collection_exists(api_root, collection_id)
 
