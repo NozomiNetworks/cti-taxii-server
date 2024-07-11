@@ -221,6 +221,7 @@ def get_or_add_objects(api_root, collection_id):
              `here <http://docs.oasis-open.org/cti/taxii/v2.0/cs01/taxii-v2.0-cs01.html#_Toc496542732>`__.
 
     """
+    log.info(f"get_or_add_objects current user: {auth.current_user()}")
     # TODO: Check if user has access to read or write objects in collection - right now just check for permissions on the collection.
     request_time = get_timestamp()  # Can't I get this from the request itself?
     if request.method == "GET":
@@ -294,7 +295,7 @@ def get_or_delete_object(api_root, collection_id, object_id):
 
     """
     # TODO: Check if user has access to read or write objects in collection - right now just check for permissions on the collection.
-    log.info(f"current user: {auth.current_user()}")
+    log.info(f"get_or_delete_object current user: {auth.current_user()}")
     api_root_exists(api_root)
     collection_exists(api_root, collection_id)
 
