@@ -26,6 +26,8 @@ ch.setFormatter(default_request_formatter())
 log = logging.getLogger(__name__)
 log.addHandler(ch)
 
+ADMIN_USER = 'nozominetworks'
+
 
 def permission_to_read(api_root, collection_id):
     collection_info = current_app.medallion_backend.get_collection(
@@ -37,11 +39,11 @@ def permission_to_read(api_root, collection_id):
         )
 
 
-def permission_to_write(api_root, collection_id):
+def permission_to_write(api_root, collection_id, current_user):
     collection_info = current_app.medallion_backend.get_collection(
         api_root, collection_id
     )
-    if collection_info["can_write"] is False:
+    if collection_info["can_write"] is False or current_user != ADMIN_USER:
         raise ProcessingError(
             "Forbidden to write collection '{}'".format(collection_id), 403
         )
@@ -77,13 +79,13 @@ def validate_version_parameter_in_content_type_header():
         )
 
 
-def permission_to_read_and_write(api_root, collection_id):
+def permission_to_read_and_write(api_root, collection_id, current_user):
     collection_info = current_app.medallion_backend.get_collection(
         api_root, collection_id
     )
     if collection_info["can_read"] is False and collection_info["can_write"] is False:
         raise ProcessingError("Collection '{}' not found".format(collection_id), 404)
-    if collection_info["can_write"] is False:
+    if collection_info["can_write"] is False or current_user != ADMIN_USER:
         raise ProcessingError(
             "Forbidden to write collection '{}'".format(collection_id), 403
         )
@@ -221,6 +223,7 @@ def get_or_add_objects(api_root, collection_id):
              `here <http://docs.oasis-open.org/cti/taxii/v2.0/cs01/taxii-v2.0-cs01.html#_Toc496542732>`__.
 
     """
+    log.info(f"get_or_add_objects current user: {auth.current_user()}")
     # TODO: Check if user has access to read or write objects in collection - right now just check for permissions on the collection.
     request_time = get_timestamp()  # Can't I get this from the request itself?
     if request.method == "GET":
@@ -258,7 +261,7 @@ def get_or_add_objects(api_root, collection_id):
         validate_version_parameter_in_content_type_header()
         api_root_exists(api_root)
         collection_exists(api_root, collection_id)
-        permission_to_write(api_root, collection_id)
+        permission_to_write(api_root, collection_id, auth.current_user())
         validate_size_in_request_body(api_root)
 
         status = current_app.medallion_backend.add_objects(
@@ -294,6 +297,7 @@ def get_or_delete_object(api_root, collection_id, object_id):
 
     """
     # TODO: Check if user has access to read or write objects in collection - right now just check for permissions on the collection.
+    log.info(f"get_or_delete_object current user: {auth.current_user()}")
     api_root_exists(api_root)
     collection_exists(api_root, collection_id)
 
@@ -311,7 +315,7 @@ def get_or_delete_object(api_root, collection_id, object_id):
             )
         raise ProcessingError("Object '{}' not found".format(object_id), 404)
     elif request.method == "DELETE":
-        # permission_to_read_and_write(api_root, collection_id)
+        permission_to_read_and_write(api_root, collection_id, auth.current_user())
         current_app.medallion_backend.delete_object(
             api_root,
             collection_id,
