@@ -200,6 +200,20 @@ def get_response_status_and_headers(start_index, total_count, objects):
         }
     return status, headers
 
+@objects_bp.route(
+    "/<string:api_root>/objects/ids/",
+    methods=["GET"],
+)
+@auth.login_required
+def get_ids(api_root):
+    validate_stix_version_parameter_in_accept_header()
+    api_root_exists(api_root)
+    objects = current_app.medallion_backend.get_objects_ids(api_root)
+    return Response(
+        response=json.dumps(objects),
+        status=200,
+        mimetype=MEDIA_TYPE_TAXII_V20,
+    )
 
 @objects_bp.route(
     "/<string:api_root>/collections/<string:collection_id>/objects/",
