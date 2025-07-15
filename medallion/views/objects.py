@@ -201,7 +201,7 @@ def get_response_status_and_headers(start_index, total_count, objects):
     return status, headers
 
 @objects_bp.route(
-    "/<string:api_root>/objects/ids",
+    "/<string:api_root>/objects/ids/",
     methods=["GET"],
 )
 @auth.login_required
