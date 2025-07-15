@@ -186,6 +186,12 @@ class MongoBackend(Backend):
         )
         return result
 
+    def get_objects_ids(self, api_root):
+        api_root_db = self.client[api_root]
+        collection = api_root_db["objects"]
+        ids_cursor = collection.find({}, {'_id': 1})
+        return [str(doc['_id']) for doc in ids_cursor]
+
     @catch_mongodb_error
     def get_objects(self, api_root, collection_id, filter_args, allowed_filters, start_index, page_size):
         api_root_db = self.client[api_root]
