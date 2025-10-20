@@ -53,6 +53,12 @@ setup(
         "pytz",
         "six",
         "pyjwt",
+        "rollbar",
+        "opentelemetry-api",
+        "opentelemetry-sdk",
+        "opentelemetry-instrumentation-flask",
+        "opentelemetry-instrumentation-sqlalchemy",
+        "opentelemetry-exporter-otlp",
     ],
     entry_points={
         "console_scripts": [
