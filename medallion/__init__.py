@@ -186,7 +186,7 @@ def verify_token(token):
     try:
         decoded_token = jwt_decode(token)
         is_authorized = (
-                datetime.utcfromtimestamp(float(decoded_token["exp"])) > current_dt
+            datetime.utcfromtimestamp(float(decoded_token["exp"])) > current_dt
         )
         if is_authorized:
             g.user = decoded_token["user"]

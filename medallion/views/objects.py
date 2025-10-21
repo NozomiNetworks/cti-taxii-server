@@ -200,6 +200,7 @@ def get_response_status_and_headers(start_index, total_count, objects):
         }
     return status, headers
 
+
 @objects_bp.route(
     "/<string:api_root>/objects/ids/",
     methods=["GET"],
@@ -214,6 +215,7 @@ def get_ids(api_root):
         status=200,
         mimetype=MEDIA_TYPE_TAXII_V20,
     )
+
 
 @objects_bp.route(
     "/<string:api_root>/collections/<string:collection_id>/objects/",
