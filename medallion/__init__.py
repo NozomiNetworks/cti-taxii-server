@@ -237,7 +237,7 @@ def init_otel(app: TaxiiFlask):
         # Configure the resource
         resource = Resource.create({
             "service.name": os.environ.get('OTEL_SERVICE_NAME', 'ti-taxii-server'),
-            "service.version": "1.0.0",
+            "service.version": os.environ.get("OTEL_SERVICE_VERSION", "default"),
         })
 
         # Create tracer provider
