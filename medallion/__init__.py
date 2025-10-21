@@ -236,7 +236,7 @@ def init_otel(app: TaxiiFlask):
     if otel_endpoint:
         # Configure the resource
         resource = Resource.create({
-            "service.name": os.environ.get('OTEL_SERVICE_NAME', 'secres-adss'),
+            "service.name": os.environ.get('OTEL_SERVICE_NAME', 'ti-taxii-server'),
             "service.version": "1.0.0",
         })
 
