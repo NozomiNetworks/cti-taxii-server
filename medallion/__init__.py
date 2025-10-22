@@ -1,16 +1,23 @@
-from collections import OrderedDict
-from datetime import datetime, timedelta
 import importlib
 import json
 import logging
 import os
 import random
+from collections import OrderedDict
+from datetime import datetime, timedelta
 
-from flask import Flask, Response, current_app, g, got_request_exception
-from flask_httpauth import HTTPBasicAuth, HTTPTokenAuth, MultiAuth
 import jwt
 import rollbar
 import rollbar.contrib.flask
+from flask import Flask, Response, current_app, g, got_request_exception
+from flask_httpauth import HTTPBasicAuth, HTTPTokenAuth, MultiAuth
+# OpenTelemetry imports
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.flask import FlaskInstrumentor
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from werkzeug.security import check_password_hash
 
 from .exceptions import BackendError, ProcessingError
@@ -223,6 +230,44 @@ class TaxiiFlask(Flask):
         self.taxii_config = None
 
 
+def init_otel(app: TaxiiFlask):
+    # OpenTelemetry initialization
+    otel_endpoint = os.environ.get('OTEL_EXPORTER_OTLP_ENDPOINT')
+    if otel_endpoint:
+        # Configure the resource
+        resource = Resource.create({
+            "service.name": os.environ.get('OTEL_SERVICE_NAME', 'ti-taxii-server'),
+            "service.version": os.environ.get("OTEL_SERVICE_VERSION", "default"),
+        })
+
+        # Create tracer provider
+        tracer_provider = TracerProvider(resource=resource)
+        trace.set_tracer_provider(tracer_provider)
+
+        # Create OTLP exporter
+        otlp_exporter = OTLPSpanExporter(endpoint=otel_endpoint)
+
+        # Create span processor
+        span_processor = BatchSpanProcessor(otlp_exporter)
+        tracer_provider.add_span_processor(span_processor)
+
+        # Instrument Flask
+        FlaskInstrumentor().instrument_app(app)
+
+
+def init_rollbar(app: TaxiiFlask):
+    rollbar_token = os.environ.get('ROLLBAR_TOKEN')
+    if rollbar_token:
+        rollbar.init(
+            rollbar_token,
+            environment=os.environ.get('ENVIRONMENT', 'development'),
+            root=os.path.dirname(os.path.realpath(__file__)),
+            allow_logging_basic_config=False
+        )
+
+        got_request_exception.connect(rollbar.contrib.flask.report_exception, app)
+
+
 def create_app(cfg="docker_config.json"):
     app = TaxiiFlask(__name__)
 
@@ -270,17 +315,8 @@ def create_app(cfg="docker_config.json"):
     register_blueprints(app)
     register_error_handlers(app)
 
-    @app.before_request
-    def init_rollbar():
-        app.before_request_funcs[None].remove(init_rollbar)
-        environment = os.environ.get("ENVIRONMENT", "development")
-        if environment != "development":
-            rollbar.init(
-                os.environ["ROLLBAR_TOKEN"],
-                environment,
-                root=os.path.dirname(os.path.realpath(__file__)),
-                allow_logging_basic_config=False,
-            )
-            got_request_exception.connect(rollbar.contrib.flask.report_exception, app)
+    with app.app_context():
+        init_otel(app)
+        init_rollbar(app)
 
     return app
