@@ -241,18 +241,19 @@ def init_otel(app: TaxiiFlask):
         })
 
         # Create tracer provider
+        otel_endpoint_traces = f"{otel_endpoint}/v1/traces"
         tracer_provider = TracerProvider(resource=resource)
         trace.set_tracer_provider(tracer_provider)
 
         # Create OTLP exporter
-        otlp_exporter = OTLPSpanExporter(endpoint=otel_endpoint)
+        otlp_exporter = OTLPSpanExporter(endpoint=otel_endpoint_traces)
 
         # Create span processor
         span_processor = BatchSpanProcessor(otlp_exporter)
         tracer_provider.add_span_processor(span_processor)
 
         # Instrument Flask
-        FlaskInstrumentor().instrument_app(app)
+        FlaskInstrumentor().instrument_app(app, tracer_provider=tracer_provider, excluded_urls="/ping")
 
 
 def init_rollbar(app: TaxiiFlask):
