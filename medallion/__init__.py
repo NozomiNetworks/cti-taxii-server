@@ -253,7 +253,7 @@ def init_otel(app: TaxiiFlask):
         tracer_provider.add_span_processor(span_processor)
 
         # Instrument Flask
-        FlaskInstrumentor().instrument_app(app, tracer_provider=tracer_provider, excluded_urls="alive")
+        FlaskInstrumentor().instrument_app(app, tracer_provider=tracer_provider, excluded_urls="/ping")
 
 
 def init_rollbar(app: TaxiiFlask):
