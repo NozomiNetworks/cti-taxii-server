@@ -13,7 +13,7 @@ from flask import Flask, Response, current_app, g, got_request_exception
 from flask_httpauth import HTTPBasicAuth, HTTPTokenAuth, MultiAuth
 # OpenTelemetry imports
 from opentelemetry import trace
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
