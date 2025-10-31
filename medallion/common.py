@@ -1,6 +1,7 @@
 import calendar
 import datetime as dt
 import uuid
+from typing import List
 
 import pytz
 from six import iteritems, text_type
@@ -136,7 +137,7 @@ def datetime_to_string_stix(dttm):
     return ts + "." + ms[:3] + "Z"
 
 
-def datetime_to_float(dttm):
+def datetime_to_float(dttm: dt.datetime) -> float:
     """Given a datetime instance, return its representation as a float"""
     # Based on this solution: https://stackoverflow.com/questions/30020988/python3-datetime-timestamp-in-python2
     if dttm.tzinfo is None:
@@ -150,7 +151,7 @@ def float_to_datetime(timestamp_float):
     return dt.datetime.utcfromtimestamp(timestamp_float)
 
 
-def string_to_datetime(timestamp_string):
+def string_to_datetime(timestamp_string: str) -> dt.datetime:
     """Convert string timestamp to datetime instance."""
     if not timestamp_string.endswith('Z'):
         timestamp_string = f"{timestamp_string}Z"
@@ -160,6 +161,13 @@ def string_to_datetime(timestamp_string):
     except ValueError:
         return dt.datetime.strptime(timestamp_string, "%Y-%m-%dT%H:%M:%SZ")
 
+
+def cast_filter_match_version_to_dates(match_version: str) -> List[float]:
+    """Given a match_version string from a filter, return a list of datetime instances."""
+    return [
+        datetime_to_float(string_to_datetime(x))
+        for x in match_version.split(",") if (x != "first" and x != "last")
+    ]
 
 def generate_status(
     request_time, status, succeeded, failed, pending,
