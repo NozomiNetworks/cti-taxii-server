@@ -1,6 +1,7 @@
-from medallion.common import datetime_to_float, string_to_datetime
+from medallion.common import datetime_to_float, string_to_datetime, cast_filter_match_version_to_dates
 
 from .basic_filter import BasicFilter
+from .mongodb_result_counter import MongoDBResultCounter
 
 
 class MongoDBFilter(BasicFilter):
@@ -58,7 +59,7 @@ class MongoDBFilter(BasicFilter):
             if not match_version:
                 match_version = "last"
             if "all" not in match_version:
-                actual_dates = [datetime_to_float(string_to_datetime(x)) for x in match_version.split(",") if (x != "first" and x != "last")]
+                actual_dates = cast_filter_match_version_to_dates(match_version)
                 # If specific dates have been selected, then we add these to the $match criteria
                 # created from the self.full_query at the beginning of this method. The reason we need
                 # to do this is because the $indexOfArray function below will return -1 if the date
@@ -86,21 +87,26 @@ class MongoDBFilter(BasicFilter):
                 }
                 pipeline.append(version_filter)
 
+        if "version" in allowed:
+            count = MongoDBResultCounter(data.database).get_count_by_current_filters(
+                self.filter_args.get("match[version]"),
+                self.full_query["_collection_id"],
+                pipeline,
+                unwind=data.name != "manifests"
+            )
+        else:
+            count = MongoDBResultCounter(data.database).old_count(pipeline, unwind=data.name != "manifests")
+
         if data.name == "manifests":
             # Project the final results
             project_results = {"$project": {"_id": 0, "_collection_id": 0, "_type": 0}}
             pipeline.append(project_results)
-            count = self.get_result_count(pipeline, data)
             self.add_pagination_operations(pipeline)
 
             cursor = data.aggregate(pipeline)
             results = list(cursor)
         else:
             results = []
-            # Get the count of matching documents - need to unwind the versions selected to get accurate count.
-            count_pipeline = list(pipeline)
-            count_pipeline.append({"$unwind": "$versions"})
-            count = self.get_result_count(count_pipeline, manifest_info["mongodb_collection"])
 
             # only bother doing the rest of the query if the start index is less than the total number of results.
             if self.start_index < count:
@@ -165,16 +171,3 @@ class MongoDBFilter(BasicFilter):
         if self.start_index is not None and self.end_index is not None:
             pipeline.append({"$skip": self.start_index})
             pipeline.append({"$limit": (self.end_index - self.start_index) + 1})
-
-    @staticmethod
-    def get_result_count(pipeline, data):
-        count_pipeline = list(pipeline)
-        count_pipeline.append({"$count": "total_count"})
-        count_result = list(data.aggregate(count_pipeline))
-
-        if len(count_result) == 0:
-            # No results
-            return 0
-
-        count = count_result[0]["total_count"]
-        return count
