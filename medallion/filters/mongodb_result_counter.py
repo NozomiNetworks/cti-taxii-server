@@ -16,9 +16,11 @@ class MongoDBResultCounter:
             pipeline: List[dict],
             unwind: bool
     ):
+        # If filters are not specified, then returns the count of all manifests (i.e., first versions)
         if not match_version:
             return self.count_first_or_last(collection_id)
 
+        # If all versions are requested, then return the count of all objects in the collection
         if "all" in match_version:
             return self.count_all_objects_in_collection(collection_id)
 
@@ -26,15 +28,18 @@ class MongoDBResultCounter:
         request_first = "first" in match_version
         request_last = "last" in match_version
 
+        # If no specific dates are requested, check if first and/or last versions are requested
         if len(actual_dates) == 0:
             if request_first and request_last:
                 return self.count_first_and_last(collection_id)
             else:
                 return self.count_first_or_last(collection_id)
 
+        # When specific dates are requested along with first and/or last versions, fall back to the old counting method
         if request_first or request_last:
             return self.old_count(pipeline, unwind)
 
+        # Otherwise, count the specific dates requested
         return self.count_specific_dates(collection_id, actual_dates)
 
     def count_all_objects_in_collection(self, collection_id: str) -> int:
