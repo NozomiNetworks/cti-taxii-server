@@ -85,8 +85,6 @@ def set_taxii_config(flask_application_instance, config_info):
 
 
 def connect_to_backend(config_info):
-    log.debug("Initializing backend configuration using: {}".format(config_info))
-
     if "module" not in config_info:
         raise ValueError("No module parameter provided for the TAXII server.")
     if "module_class" not in config_info:
