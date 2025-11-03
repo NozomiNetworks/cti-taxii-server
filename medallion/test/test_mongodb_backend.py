@@ -442,7 +442,6 @@ class TestTAXIIServerWithMongoDBBackend(TaxiiTest):
         self.assertEqual(len(manifests["objects"]), 1, "Expected exactly one result")
         # ------------- END: get objects section 4 ------------- #
 
-
     @pytest.mark.skip(reason="Currently failing, investigate in a future PR")
     def test_get_collections_401(self):
         r = self.client.get(test.COLLECTIONS_EP)
