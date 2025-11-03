@@ -49,7 +49,7 @@ jobs:
         tox
     - name: Test with pytest
       run: |
-        pip install pytest
+        pip install -r requirements.txt
         pytest -vv medallion/test/unit
         pytest -vv medallion/test/test_mongodb_result_counter.py
         pytest -vv medallion/test/test_mongodb_backend.py
