@@ -52,3 +52,4 @@ jobs:
         pip install pytest
         pytest -vv medallion/test/unit
         pytest -vv medallion/test/test_mongodb_result_counter.py
+        pytest -vv medallion/test/test_mongodb_backend.py

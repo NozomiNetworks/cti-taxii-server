@@ -41,10 +41,10 @@ class MongoDBResultCounter:
         return self.database.objects.count_documents({"_collection_id": collection_id})
 
     def count_first_or_last(self, collection_id: str) -> int:
-        return self.database.collections('manifests').count_documents({"_collection_id": collection_id})
+        return self.database.manifests.count_documents({"_collection_id": collection_id})
 
     def count_first_and_last(self, collection_id: str) -> int:
-        return self.database.collections('manifests').aggregate(
+        return self.database.manifests.aggregate(
             [
                 {"$match": {"_collection_id": collection_id}},
                 {
@@ -64,7 +64,7 @@ class MongoDBResultCounter:
         )
 
     def count_specific_dates(self, collection_id: str, actual_dates: List[float]) -> int:
-        return self.database.collections('objects').count_documents(
+        return self.database.objects.count_documents(
             {
                 "$and": [
                     {"_collection_id": collection_id},
@@ -86,7 +86,7 @@ class MongoDBResultCounter:
         if unwind:
             count_pipeline.append({"$unwind": "$versions"})
         count_pipeline.append({"$count": "total_count"})
-        count_result = list(self.database.collections("manifests").aggregate(count_pipeline))
+        count_result = list(self.database.manifests.aggregate(count_pipeline))
 
         if len(count_result) == 0:
             # No results

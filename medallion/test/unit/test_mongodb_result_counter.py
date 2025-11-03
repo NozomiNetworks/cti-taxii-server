@@ -8,28 +8,28 @@ from medallion.filters.mongodb_result_counter import MongoDBResultCounter
 class TestMongoDBResultCounter:
 
     def test_old_count_with_unwind_no_results(self, mongodb_result_counter):
-        mongodb_result_counter.database.collections("manifests").aggregate.return_value = []
+        mongodb_result_counter.database.manifests.aggregate.return_value = []
         assert mongodb_result_counter.old_count([{"simple": "filter"}], unwind=True) == 0
-        mongodb_result_counter.database.collections("manifests").aggregate.assert_called_once_with(
+        mongodb_result_counter.database.manifests.aggregate.assert_called_once_with(
             [{"simple": "filter"}, {'$unwind': '$versions'}, {'$count': 'total_count'}]
         )
 
     def test_old_count_with_no_unwind_no_results(self, mongodb_result_counter):
-        mongodb_result_counter.database.collections("manifests").aggregate.return_value = []
+        mongodb_result_counter.database.manifests.aggregate.return_value = []
         assert mongodb_result_counter.old_count([{"simple": "filter"}], False) == 0
-        mongodb_result_counter.database.collections("manifests").aggregate.assert_called_once_with(
+        mongodb_result_counter.database.manifests.aggregate.assert_called_once_with(
             [{"simple": "filter"}, {'$count': 'total_count'}]
         )
 
     def test_old_count_with_unwind_with_results(self, mongodb_result_counter):
-        mongodb_result_counter.database.collections("manifests").aggregate.return_value = [{"total_count": 5}]
+        mongodb_result_counter.database.manifests.aggregate.return_value = [{"total_count": 5}]
         assert mongodb_result_counter.old_count([{"simple": "filter"}], unwind=True) == 5
 
     def test_count_specific_dates(self, mongodb_result_counter):
-        mongodb_result_counter.database.collections("objects").count_documents.return_value = 10
+        mongodb_result_counter.database.objects.count_documents.return_value = 10
         actual_dates = [123456789.0, 987654321.0]
         assert mongodb_result_counter.count_specific_dates("collection_id_1", actual_dates) == 10
-        mongodb_result_counter.database.collections("objects").count_documents.assert_called_once_with(
+        mongodb_result_counter.database.objects.count_documents.assert_called_once_with(
             {
                 "$and": [
                     {"_collection_id": "collection_id_1"},
@@ -47,9 +47,9 @@ class TestMongoDBResultCounter:
         )
 
     def test_count_first_and_last(self, mongodb_result_counter):
-        mongodb_result_counter.database.collections('manifests').count_documents.return_value = 10
+        mongodb_result_counter.database.manifests.count_documents.return_value = 10
         assert mongodb_result_counter.count_first_or_last("collection_id_2") == 10
-        mongodb_result_counter.database.collections('manifests').count_documents.assert_called_once_with(
+        mongodb_result_counter.database.manifests.count_documents.assert_called_once_with(
             {"_collection_id": "collection_id_2"}
         )
 

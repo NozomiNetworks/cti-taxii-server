@@ -72,6 +72,10 @@ class TaxiiTest(unittest.TestCase):
             'Accept': MEDIA_TYPE_TAXII_V20,
             'Authorization': 'Token abc123'
         }
+        self.nozomi_auth_common_headers = {
+            'Accept': MEDIA_TYPE_TAXII_V20,
+            'Authorization': 'Basic bm96b21pbmV0d29ya3M6dGVzdA=='  # nozominetworks:test
+        }
 
     def tearDown(self):
         self.app_context.pop()
