@@ -13,7 +13,7 @@ class MongoDBResultCounter:
             self,
             match_version: Optional[str],
             collection_id: str,
-            pipeline: list[dict],
+            pipeline: List[dict],
             unwind: bool
     ):
         if not match_version:
@@ -81,7 +81,7 @@ class MongoDBResultCounter:
             }
         )
 
-    def old_count(self, pipeline: list[dict], unwind: bool) -> int:
+    def old_count(self, pipeline: List[dict], unwind: bool) -> int:
         count_pipeline = list(pipeline)
         if unwind:
             count_pipeline.append({"$unwind": "$versions"})
