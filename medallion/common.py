@@ -169,6 +169,7 @@ def cast_filter_match_version_to_dates(match_version: str) -> List[float]:
         for x in match_version.split(",") if (x != "first" and x != "last")
     ]
 
+
 def generate_status(
     request_time, status, succeeded, failed, pending,
     successes_ids=None, failures=None, pendings=None,
