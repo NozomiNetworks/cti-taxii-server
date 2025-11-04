@@ -236,8 +236,8 @@ class MongoBackend(Backend):
                     failed += 1
                 else:
                     new_obj.update({"_collection_id": collection_id})
-                    if not all(prop in new_obj for prop in ("modified", "created")):
-                        new_obj["_date_added"] = datetime_to_float(string_to_datetime(obj_version))  # Special case for un-versioned objects
+                    new_obj["_date_added"] = datetime_to_float(string_to_datetime(obj_version))
+
                     if "modified" in new_obj:
                         new_obj["modified"] = datetime_to_float(string_to_datetime(new_obj["modified"]))
                     if "created" in new_obj:
