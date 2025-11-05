@@ -236,7 +236,7 @@ class MongoBackend(Backend):
                     failed += 1
                 else:
                     new_obj.update({"_collection_id": collection_id})
-                    new_obj["_date_added"] = datetime_to_float(string_to_datetime(request_time))
+                    new_obj["_date_added"] = datetime_to_float(request_time)
 
                     if "modified" in new_obj:
                         new_obj["modified"] = datetime_to_float(string_to_datetime(new_obj["modified"]))
