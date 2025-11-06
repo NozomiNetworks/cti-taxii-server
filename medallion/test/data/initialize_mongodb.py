@@ -319,6 +319,10 @@ def create_users(url="mongodb://root:example@localhost:27017/"):
         {
           "_id": "user2",
           "password": "pbkdf2:sha256:150000$CUo7l9Vz$3ff2da22dcb84c9ba64e2df4d1ee9f7061c1da4f8506618f53457f615178e3f3"
+        },
+        {
+          "_id": "nozominetworks",
+          "password": "pbkdf2:sha256:1000000$WMhyS14B$67163a08284f6f75eb254a21322425e1f7f91a121357679b0252f076172e43f0"
         }
     ])
 

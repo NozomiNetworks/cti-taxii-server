@@ -1,4 +1,4 @@
-FROM python:alpine
+FROM python:3.13-bookworm
 
 COPY . /opt/taxii
 COPY ./docker_utils/*.json /opt/taxii

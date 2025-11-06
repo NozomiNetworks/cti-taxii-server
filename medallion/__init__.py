@@ -1,13 +1,23 @@
-from collections import OrderedDict
-from datetime import datetime, timedelta
 import importlib
 import json
 import logging
+import os
 import random
+from collections import OrderedDict
+from datetime import datetime, timedelta
 
-from flask import Flask, Response, current_app, g
-from flask_httpauth import HTTPBasicAuth, HTTPTokenAuth, MultiAuth
 import jwt
+import rollbar
+import rollbar.contrib.flask
+from flask import Flask, Response, current_app, g, got_request_exception
+from flask_httpauth import HTTPBasicAuth, HTTPTokenAuth, MultiAuth
+# OpenTelemetry imports
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.flask import FlaskInstrumentor
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from werkzeug.security import check_password_hash
 
 from .exceptions import BackendError, ProcessingError
@@ -23,7 +33,7 @@ ch.setFormatter(default_request_formatter())
 log = logging.getLogger(__name__)
 log.addHandler(ch)
 
-jwt_auth = HTTPTokenAuth(scheme='JWT')
+jwt_auth = HTTPTokenAuth(scheme="JWT")
 basic_auth = HTTPBasicAuth()
 token_auth = HTTPTokenAuth(scheme='Token')
 auth = MultiAuth(None)
@@ -73,8 +83,6 @@ def set_taxii_config(flask_application_instance, config_info):
 
 
 def connect_to_backend(config_info):
-    log.debug("Initializing backend configuration using: {}".format(config_info))
-
     if "module" not in config_info:
         raise ValueError("No module parameter provided for the TAXII server.")
     if "module_class" not in config_info:
@@ -97,10 +105,7 @@ def set_backend_config(flask_application_instance, config_info):
 
 
 def register_blueprints(app):
-    from medallion.views import collections
-    from medallion.views import discovery
-    from medallion.views import manifest
-    from medallion.views import objects
+    from medallion.views import collections, discovery, manifest, objects
     from medallion.views.others.auth import auth_bp
     from medallion.views.others.healthcheck import healthecheck_bp
 
@@ -218,7 +223,46 @@ class TaxiiFlask(Flask):
         self.taxii_config = None
 
 
-def create_app(cfg):
+def init_otel(app: TaxiiFlask):
+    # OpenTelemetry initialization
+    otel_endpoint = os.environ.get('OTEL_EXPORTER_OTLP_ENDPOINT')
+    if otel_endpoint:
+        # Configure the resource
+        resource = Resource.create({
+            "service.name": os.environ.get('OTEL_SERVICE_NAME', 'ti-taxii-server'),
+            "service.version": os.environ.get("OTEL_SERVICE_VERSION", "default"),
+        })
+
+        # Create tracer provider
+        otel_endpoint_traces = f"{otel_endpoint}/v1/traces"
+        tracer_provider = TracerProvider(resource=resource)
+        trace.set_tracer_provider(tracer_provider)
+
+        # Create OTLP exporter
+        otlp_exporter = OTLPSpanExporter(endpoint=otel_endpoint_traces)
+
+        # Create span processor
+        span_processor = BatchSpanProcessor(otlp_exporter)
+        tracer_provider.add_span_processor(span_processor)
+
+        # Instrument Flask
+        FlaskInstrumentor().instrument_app(app, tracer_provider=tracer_provider, excluded_urls="/ping")
+
+
+def init_rollbar(app: TaxiiFlask):
+    rollbar_token = os.environ.get('ROLLBAR_TOKEN')
+    if rollbar_token:
+        rollbar.init(
+            rollbar_token,
+            environment=os.environ.get('ENVIRONMENT', 'development'),
+            root=os.path.dirname(os.path.realpath(__file__)),
+            allow_logging_basic_config=False
+        )
+
+        got_request_exception.connect(rollbar.contrib.flask.report_exception, app)
+
+
+def create_app(cfg="docker_config.json"):
     app = TaxiiFlask(__name__)
 
     if isinstance(cfg, dict):
@@ -264,5 +308,9 @@ def create_app(cfg):
 
     register_blueprints(app)
     register_error_handlers(app)
+
+    with app.app_context():
+        init_otel(app)
+        init_rollbar(app)
 
     return app

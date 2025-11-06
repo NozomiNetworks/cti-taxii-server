@@ -16,11 +16,11 @@ def validate_taxii_version_parameter_in_accept_header():
     found = False
 
     for item in accept_header:
-        result = re.match(r"^application/vnd\.oasis\.taxii\+json(;version=(\d\.\d))?$", item)
+        result = re.match(r"^application/(vnd\.oasis\.stix|taxii|vnd\.oasis\.taxii)\+json; ?version=(\d\.\d)?$", item)
         if result:
-            if len(result.groups()) >= 1:
+            if len(result.groups()) >= 2:
                 version_str = result.group(2)
-                if version_str != "2.0":  # The server only supports 2.0
+                if version_str != "2.0" and version_str != "2.1":  # The server only supports 2.0
                     raise ProcessingError("The server does not support version {}".format(version_str), 406)
             found = True
             break
@@ -35,11 +35,11 @@ def validate_stix_version_parameter_in_accept_header():
     found = False
 
     for item in accept_header:
-        result = re.match(r"^application/vnd\.oasis\.stix\+json(;version=(\d\.\d))?$", item)
+        result = re.match(r"^application/(vnd\.oasis\.stix\+json|taxii\+json)(;version=(\d\.\d))?$", item)
         if result:
-            if len(result.groups()) >= 1:
-                version_str = result.group(2)
-                if version_str != "2.0":  # The server only supports 2.0
+            if len(result.groups()) >= 3:
+                version_str = result.group(3)
+                if version_str != "2.0" and version_str != "2.1":  # The server only supports 2.0
                     raise ProcessingError("The server does not support version {}".format(version_str), 406)
             found = True
             break

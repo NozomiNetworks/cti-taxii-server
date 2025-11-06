@@ -3,16 +3,30 @@ import re
 from flask import Blueprint, Response, current_app, json, request
 
 from . import (
-    MEDIA_TYPE_STIX_V20, MEDIA_TYPE_TAXII_V20,
+    MEDIA_TYPE_STIX_V20,
+    MEDIA_TYPE_TAXII_V20,
     validate_stix_version_parameter_in_accept_header,
-    validate_taxii_version_parameter_in_accept_header
+    validate_taxii_version_parameter_in_accept_header,
 )
 from .. import auth
 from ..common import get_timestamp
 from ..exceptions import ProcessingError
 from .discovery import api_root_exists
+from ..log import default_request_formatter
+
+import logging
 
 objects_bp = Blueprint("objects", __name__)
+
+# Console Handler for medallion messages
+ch = logging.StreamHandler()
+ch.setFormatter(default_request_formatter())
+
+# Module-level logger
+log = logging.getLogger(__name__)
+log.addHandler(ch)
+
+ADMIN_USER = 'nozominetworks'
 
 
 def permission_to_read(api_root, collection_id):
@@ -21,10 +35,14 @@ def permission_to_read(api_root, collection_id):
         raise ProcessingError("Forbidden to read collection '{}'".format(collection_id), 403)
 
 
-def permission_to_write(api_root, collection_id):
-    collection_info = current_app.medallion_backend.get_collection(api_root, collection_id)
-    if collection_info["can_write"] is False:
-        raise ProcessingError("Forbidden to write collection '{}'".format(collection_id), 403)
+def permission_to_write(api_root, collection_id, current_user):
+    collection_info = current_app.medallion_backend.get_collection(
+        api_root, collection_id
+    )
+    if collection_info["can_write"] is False or current_user != ADMIN_USER:
+        raise ProcessingError(
+            "Forbidden to write collection '{}'".format(collection_id), 403
+        )
 
 
 def collection_exists(api_root, collection_id):
@@ -50,6 +68,22 @@ def validate_version_parameter_in_content_type_header():
         raise ProcessingError("Media type in the Content-Type header is invalid or not found", 415)
 
 
+def permission_to_read_and_write(api_root, collection_id, current_user):
+    collection_info = current_app.medallion_backend.get_collection(
+        api_root, collection_id
+    )
+    if collection_info["can_read"] is False and collection_info["can_write"] is False:
+        raise ProcessingError("Collection '{}' not found".format(collection_id), 404)
+    if collection_info["can_write"] is False or current_user != ADMIN_USER:
+        raise ProcessingError(
+            "Forbidden to write collection '{}'".format(collection_id), 403
+        )
+    if collection_info["can_read"] is False:
+        raise ProcessingError(
+            "Forbidden to read collection '{}'".format(collection_id), 403
+        )
+
+
 def validate_size_in_request_body(api_root):
     api_root = current_app.medallion_backend.get_api_root_information(api_root)
     max_length = api_root["max_content_length"]
@@ -64,7 +98,7 @@ def validate_size_in_request_body(api_root):
 def get_range_request_from_headers():
     if request.headers.get("Range") is not None:
         try:
-            matches = re.match(r"^items=(\d+)-(\d+)$", request.headers.get("Range"))
+            matches = re.match(r"^items[= ](\d+)-(\d+)$", request.headers.get("Range"))
             start_index = int(matches.group(1))
             end_index = int(matches.group(2))
             # check that the requested number of items isn't larger than the maximum support server page size
@@ -76,6 +110,22 @@ def get_range_request_from_headers():
             raise ProcessingError("Bad Range header supplied", 400, e)
     else:
         return 0, current_app.taxii_config["max_page_size"] - 1
+
+
+def validate_limit_parameter():
+    max_page = current_app.taxii_config["max_page_size"]
+    limit = request.args.get("limit", max_page)
+    try:
+        limit = int(limit)
+    except ValueError:
+        raise ProcessingError(
+            "The server did not understand the request or filter parameters", 400
+        )
+    if limit <= 0:
+        raise ProcessingError("The limit parameter cannot be negative or zero", 400)
+    if limit > max_page:
+        limit = max_page
+    return limit
 
 
 def get_custom_headers(headers, api_root, collection_id, start, end):
@@ -151,11 +201,20 @@ def get_or_add_objects(api_root, collection_id):
         permission_to_read(api_root, collection_id)
         start_index, end_index = get_range_request_from_headers()
         total_count, objects = current_app.medallion_backend.get_objects(
-            api_root, collection_id, request.args, ("id", "type", "version"), start_index, end_index,
+            api_root,
+            collection_id,
+            request.args,
+            ("id", "type", "version"),
+            start_index,
+            end_index,
         )
         if objects:
-            status, headers = get_response_status_and_headers(start_index, total_count, objects["objects"])
-            headers = get_custom_headers(headers, api_root, collection_id, start_index, end_index)
+            status, headers = get_response_status_and_headers(
+                start_index, total_count, objects["objects"]
+            )
+            headers = get_custom_headers(
+                headers, api_root, collection_id, start_index, end_index
+            )
             return Response(
                 response=json.dumps(objects),
                 status=status,
@@ -168,10 +227,12 @@ def get_or_add_objects(api_root, collection_id):
         validate_version_parameter_in_content_type_header()
         api_root_exists(api_root)
         collection_exists(api_root, collection_id)
-        permission_to_write(api_root, collection_id)
+        permission_to_write(api_root, collection_id, auth.current_user())
         validate_size_in_request_body(api_root)
 
-        status = current_app.medallion_backend.add_objects(api_root, collection_id, request.get_json(force=True), request_time)
+        status = current_app.medallion_backend.add_objects(
+            api_root, collection_id, request.get_json(force=True), request_time
+        )
         return Response(
             response=json.dumps(status),
             status=202,
@@ -179,12 +240,16 @@ def get_or_add_objects(api_root, collection_id):
         )
 
 
-@objects_bp.route("/<string:api_root>/collections/<string:collection_id>/objects/<string:object_id>/", methods=["GET"])
+@objects_bp.route(
+    "/<string:api_root>/collections/<string:collection_id>/object/<string:object_id>/",
+    methods=["GET", "DELETE"],
+)
 @auth.login_required
-def get_object(api_root, collection_id, object_id):
+def get_or_delete_object(api_root, collection_id, object_id):
     """
     Defines TAXII API - Collections:
-    `Get Object Section (5.5) <http://docs.oasis-open.org/cti/taxii/v2.0/cs01/taxii-v2.0-cs01.html#_Toc496542740>`__
+        Get Object section (`5.6 <https://docs.oasis-open.org/cti/taxii/v2.1/cs01/taxii-v2.1-cs01.html#_Toc31107541>`__)
+        and Delete Object section (`5.7 <https://docs.oasis-open.org/cti/taxii/v2.1/cs01/taxii-v2.1-cs01.html#_Toc31107542>`__)
 
     Args:
         api_root (str): the base URL of the API Root
@@ -192,21 +257,39 @@ def get_object(api_root, collection_id, object_id):
         object_id (str): the `identifier` of the object being requested
 
     Returns:
-        bundle: GET -> A STIX 2.0 Bundle upon successful requests. Additional information
-             `here <http://docs.oasis-open.org/cti/stix/v2.0/cs01/part1-stix-core/stix-v2.0-cs01-part1-stix-core.html#_Toc496709292>`__.
+        resource:
+            GET -> An Envelope Resource upon successful requests.
+            DELETE -> Upon successful request nothing (status code 200).
 
     """
-    # TODO: Check if user has access to objects in collection - right now just check for permissions on the collection
-    validate_stix_version_parameter_in_accept_header()
+    # TODO: Check if user has access to read or write objects in collection - right now just check for permissions on the collection.
+    log.info(f"get_or_delete_object current user: {auth.current_user()}")
     api_root_exists(api_root)
     collection_exists(api_root, collection_id)
-    permission_to_read(api_root, collection_id)
 
-    objects = current_app.medallion_backend.get_object(api_root, collection_id, object_id, request.args, ("version",))
-    if objects:
+    if request.method == "GET":
+        permission_to_read(api_root, collection_id)
+
+        objects = current_app.medallion_backend.get_object(
+            api_root, collection_id, object_id, request.args, ("version",)
+        )
+        if objects:
+            return Response(
+                response=json.dumps(objects),
+                status=200,
+                mimetype=MEDIA_TYPE_STIX_V20,
+            )
+        raise ProcessingError("Object '{}' not found".format(object_id), 404)
+    elif request.method == "DELETE":
+        permission_to_read_and_write(api_root, collection_id, auth.current_user())
+        current_app.medallion_backend.delete_object(
+            api_root,
+            collection_id,
+            object_id,
+            request.args.to_dict(),
+            ("version", "spec_version", "id"),
+        )
         return Response(
-            response=json.dumps(objects),
             status=200,
             mimetype=MEDIA_TYPE_STIX_V20,
         )
-    raise ProcessingError("Object '{}' not found".format(object_id), 404)
