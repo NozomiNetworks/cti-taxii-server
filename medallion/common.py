@@ -10,6 +10,14 @@ from six import iteritems
 APPLICATION_INSTANCE = Flask("medallion")
 
 
+def cast_filter_match_version_to_dates(match_version: str) -> list[float]:
+    """Given a match_version string from a filter, return a list of datetime instances."""
+    return [
+        datetime_to_float(string_to_datetime(x))
+        for x in match_version.split(",") if (x != "first" and x != "last")
+    ]
+
+
 def create_resource(resource_name, items, more=False, next_id=None):
     """Generates a Resource Object given a resource name."""
     resource = {}
@@ -165,8 +173,8 @@ def string_to_datetime(timestamp_string):
 
 
 def generate_status(
-    request_time, status, succeeded, failed, pending,
-    successes=None, failures=None, pendings=None,
+        request_time, status, succeeded, failed, pending,
+        successes=None, failures=None, pendings=None,
 ):
     """Generate Status Resource as defined in TAXII 2.1 section (4.3.1) <link here>`__."""
     status = {

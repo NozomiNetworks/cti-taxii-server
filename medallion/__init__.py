@@ -1,9 +1,20 @@
 import importlib
 import logging
+import os
+import random
 import warnings
 
-from flask import Response, current_app, json
+import rollbar
+import rollbar.contrib.flask
+from flask import Response, current_app, json, got_request_exception, g, Flask
 from flask_httpauth import HTTPBasicAuth
+# OpenTelemetry imports
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.flask import FlaskInstrumentor
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 from .backends import base as mbe_base
 from .common import APPLICATION_INSTANCE
@@ -24,6 +35,20 @@ auth = HTTPBasicAuth()
 
 def set_config(flask_application_instance, prop_name, config):
     log.debug("Registering medallion {} configuration into {}".format(prop_name, flask_application_instance))
+
+    flask_application_instance.logger = logging.getLogger('medallion-app')
+    flask_application_instance.logger.setLevel(logging.INFO)
+    handler = logging.StreamHandler()
+    flask_application_instance.logger.addHandler(handler)
+
+    if not flask_application_instance.debug:
+        # Shut up the werkzeug logger unless debugging.
+        logging.getLogger('werkzeug').setLevel(logging.CRITICAL)
+
+    with APPLICATION_INSTANCE.app_context():
+        init_otel(flask_application_instance)
+        init_rollbar(flask_application_instance)
+
     if prop_name == "taxii":
         if prop_name in config:
             flask_application_instance.taxii_config = config[prop_name]
@@ -156,3 +181,42 @@ def handle_backend_error(error):
         status=error.status,
         mimetype=MEDIA_TYPE_TAXII_V21,
     )
+
+
+def init_otel(app: Flask):
+    # OpenTelemetry initialization
+    otel_endpoint = os.environ.get('OTEL_EXPORTER_OTLP_ENDPOINT')
+    if otel_endpoint:
+        # Configure the resource
+        resource = Resource.create({
+            "service.name": os.environ.get('OTEL_SERVICE_NAME', 'ti-taxii-server'),
+            "service.version": os.environ.get("OTEL_SERVICE_VERSION", "default"),
+        })
+
+        # Create tracer provider
+        otel_endpoint_traces = f"{otel_endpoint}/v1/traces"
+        tracer_provider = TracerProvider(resource=resource)
+        trace.set_tracer_provider(tracer_provider)
+
+        # Create OTLP exporter
+        otlp_exporter = OTLPSpanExporter(endpoint=otel_endpoint_traces)
+
+        # Create span processor
+        span_processor = BatchSpanProcessor(otlp_exporter)
+        tracer_provider.add_span_processor(span_processor)
+
+        # Instrument Flask
+        FlaskInstrumentor().instrument_app(app, tracer_provider=tracer_provider, excluded_urls="/ping")
+
+
+def init_rollbar(app: Flask):
+    rollbar_token = os.environ.get('ROLLBAR_TOKEN')
+    if rollbar_token:
+        rollbar.init(
+            rollbar_token,
+            environment=os.environ.get('ENVIRONMENT', 'development'),
+            root=os.path.dirname(os.path.realpath(__file__)),
+            allow_logging_basic_config=False
+        )
+
+        got_request_exception.connect(rollbar.contrib.flask.report_exception, app)

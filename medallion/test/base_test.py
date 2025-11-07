@@ -72,12 +72,13 @@ class TaxiiTest():
     mongodb_config = {
         "backend": {
             "module_class": "MongoBackend",
-            "uri": "mongodb://127.0.0.1:27017/",
+            "uri": "mongodb://root:example@127.0.0.1:27017/",
             "filename": DATA_FILE,
             "clear_db": True
         },
         "users": {
             "root": "example",
+            "nozominetworks": "test",
         },
         "taxii": {
             "max_page_size": 20,
@@ -129,6 +130,15 @@ class TaxiiTest():
             "Content-Type": "application/taxii+json;version=2.1",
             "Accept": "application/taxii+json;version=2.1",
             "Authorization": encoded_auth
+        }
+        self.nozomi_auth_headers = {
+            'Accept': "application/taxii+json;version=2.1",
+            'Authorization': 'Basic bm96b21pbmV0d29ya3M6dGVzdA=='  # nozominetworks:test
+        }
+        self.post_nozomi_auth_headers = {
+            "Content-Type": "application/taxii+json;version=2.1",
+            "Accept": "application/taxii+json;version=2.1",
+            'Authorization': 'Basic bm96b21pbmV0d29ya3M6dGVzdA=='  # nozominetworks:test
         }
 
     def tearDown(self):
