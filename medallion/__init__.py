@@ -1,16 +1,17 @@
 import importlib
 import logging
 import os
-import random
 import warnings
 
 import rollbar
 import rollbar.contrib.flask
-from flask import Response, current_app, json, got_request_exception, g, Flask
+from flask import Flask, Response, current_app, got_request_exception, json
 from flask_httpauth import HTTPBasicAuth
 # OpenTelemetry imports
 from opentelemetry import trace
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+    OTLPSpanExporter
+)
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider

@@ -1,7 +1,9 @@
 from bson.son import SON
 from pymongo import ASCENDING
 
-from ..common import datetime_to_float, string_to_datetime, cast_filter_match_version_to_dates
+from ..common import (
+    cast_filter_match_version_to_dates, datetime_to_float, string_to_datetime
+)
 from .basic_filter import BasicFilter
 
 
