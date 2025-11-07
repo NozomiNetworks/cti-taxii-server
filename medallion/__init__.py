@@ -3,8 +3,6 @@ import logging
 import os
 import warnings
 
-import rollbar
-import rollbar.contrib.flask
 from flask import Flask, Response, current_app, got_request_exception, json
 from flask_httpauth import HTTPBasicAuth
 # OpenTelemetry imports
@@ -16,6 +14,8 @@ from opentelemetry.instrumentation.flask import FlaskInstrumentor
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
+import rollbar
+import rollbar.contrib.flask
 
 from .backends import base as mbe_base
 from .common import APPLICATION_INSTANCE
