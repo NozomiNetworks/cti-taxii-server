@@ -75,7 +75,7 @@ class MongoDBFilter(BasicFilter):
             if not match_version:
                 match_version = "last"
             if "all" not in match_version:
-                actual_dates = [datetime_to_float(string_to_datetime(x)) for x in match_version.split(",") if (x != "first" and x != "last")]
+                actual_dates = cast_filter_match_version_to_dates(match_version)
 
                 latest_pipeline = list(pipeline)
                 latest_pipeline.append({"$sort": {"_manifest.version": ASCENDING}})
