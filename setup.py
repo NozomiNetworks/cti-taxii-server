@@ -55,6 +55,12 @@ setup(
         "Flask-HTTPAuth",
         "pytz",
         "six",
+        "rollbar",
+        "opentelemetry-api",
+        "opentelemetry-sdk",
+        "opentelemetry-instrumentation-flask",
+        "opentelemetry-instrumentation-sqlalchemy",
+        "opentelemetry-exporter-otlp",
     ],
     entry_points={
         "console_scripts": [
@@ -66,13 +72,7 @@ setup(
             "coverage",
             "pytest",
             "pytest-cov",
-            "tox",
-            "rollbar",
-            "opentelemetry-api",
-            "opentelemetry-sdk",
-            "opentelemetry-instrumentation-flask",
-            "opentelemetry-instrumentation-sqlalchemy",
-            "opentelemetry-exporter-otlp",
+            "tox"
         ],
         "docs": [
             "sphinx",
