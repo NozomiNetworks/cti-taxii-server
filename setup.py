@@ -67,6 +67,12 @@ setup(
             "pytest",
             "pytest-cov",
             "tox",
+            "rollbar",
+            "opentelemetry-api",
+            "opentelemetry-sdk",
+            "opentelemetry-instrumentation-flask",
+            "opentelemetry-instrumentation-sqlalchemy",
+            "opentelemetry-exporter-otlp",
         ],
         "docs": [
             "sphinx",

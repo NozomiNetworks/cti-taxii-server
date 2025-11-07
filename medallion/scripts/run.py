@@ -4,7 +4,7 @@ import logging
 import textwrap
 
 from medallion import (
-    __version__, application_instance, register_blueprints, set_config
+    __version__, application_instance, register_blueprints, set_config, create_app
 )
 
 log = logging.getLogger("medallion")
@@ -74,6 +74,8 @@ def main():
 
     with open(medallion_args.CONFIG_PATH, "r") as f:
         configuration = json.load(f)
+
+    application_instance = create_app()
 
     set_config(application_instance, "users", configuration)
     set_config(application_instance, "taxii", configuration)

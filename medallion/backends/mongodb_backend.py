@@ -408,3 +408,32 @@ class MongoBackend(Backend):
         manifests_found = list(map(lambda x: datetime_to_string_stix(float_to_datetime(x["version"])), manifests_found))
         next_id, more = self._update_record(next_id, count)
         return create_resource("versions", manifests_found, more, next_id), headers
+
+    ## Need to check why we implement it again
+    # @catch_mongodb_error
+    # def delete_object(self, api_root, collection_id, object_id, filter_args, allowed_filters):
+        # api_root_db = self.client[api_root]
+        # objects_info = api_root_db["objects"]
+        #
+        # self._validate_object_id(objects_info, collection_id, object_id)
+        #
+        # # Currently it will delete the object and the matching manifest from the backend
+        # full_filter = MongoDBFilter(
+        #     filter_args,
+        #     {"_collection_id": collection_id, "id": object_id},
+        #     allowed_filters,
+        # )
+        # count, objects_found = full_filter.process_filter(
+        #     objects_info,
+        #     allowed_filters,
+        #     {"mongodb_collection": api_root_db["manifests"], "_collection_id": collection_id}
+        # )
+        # if objects_found:
+        #     for obj in objects_found:
+        #         logging.warning(f"CONTENTS OF OBJ: {obj}")
+        #         # obj_version = obj["_manifest"]["version"]
+        #         objects_info.delete_one(
+        #             {"_collection_id": collection_id, "id": object_id}  # "_manifest.version": obj_version}
+        #         )
+        # else:
+        #     raise ProcessingError("Object '{}' not found".format(object_id), 404)

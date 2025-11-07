@@ -1,0 +1,55 @@
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+
+name: cti-taxii-server test harness
+on: [push, pull_request]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.13']
+
+    name: Python ${{ matrix.python-version }} Build
+    steps:
+    - uses: actions/checkout@v2 # TODO: change to v3.3.0?
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2 # TODO: change to v4.5.0?
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install MongoDB
+      run: |
+        sudo apt-get update
+        sudo apt-get install gnupg curl
+        curl -fsSL https://pgp.mongodb.com/server-6.0.asc | \
+        sudo gpg -o /usr/share/keyrings/mongodb-server-6.0.gpg \
+        --dearmor
+        echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-6.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
+        sudo apt-get update
+        sudo apt-get install -y mongodb-org
+    - name: Start MongoDB
+      run: |
+        sudo systemctl start mongod
+    - name: Install and update essential dependencies
+      run: |
+        pip install -U pip setuptools
+        pip install tox-gh-actions
+        pip install codecov
+    - name: Check inside mongo bin folder
+      run: |
+        ls /usr/local
+        echo "------------"
+        ps aux
+    - name: Create test user
+      run: |
+        mongosh admin --eval 'db.createUser({user:"root",pwd:"example",roles:[{role:"root",db:"admin"}]});'
+    - name: Test with Tox
+      run: |
+        tox
+    - name: Test with pytest
+      run: |
+        pip install -r requirements.txt
+        pip install pymongo
+        pytest -vv medallion/test/unit
+        pytest -vv medallion/test/test_mongodb_backend.py

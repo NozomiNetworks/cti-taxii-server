@@ -1,8 +1,19 @@
 import importlib
 import logging
+import os
+import random
 
-from flask import Flask, Response, current_app, json
+import rollbar
+import rollbar.contrib.flask
+from flask import Flask, Response, current_app, json, got_request_exception, g
 from flask_httpauth import HTTPBasicAuth
+# OpenTelemetry imports
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.instrumentation.flask import FlaskInstrumentor
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 from .exceptions import BackendError, ProcessingError
 from .version import __version__  # noqa
@@ -16,20 +27,7 @@ ch.setFormatter(logging.Formatter("[%(name)s] [%(levelname)-8s] [%(asctime)s] %(
 log = logging.getLogger(__name__)
 log.addHandler(ch)
 
-application_instance = Flask(__name__)
 auth = HTTPBasicAuth()
-
-
-def load_app(config_file):
-    with open(config_file, "r") as f:
-        configuration = json.load(f)
-
-    set_config(application_instance, "users", configuration)
-    set_config(application_instance, "taxii", configuration)
-    set_config(application_instance, "backend", configuration)
-    register_blueprints(application_instance)
-
-    return application_instance
 
 
 def set_config(flask_application_instance, prop_name, config):
@@ -100,7 +98,6 @@ def get_pwd(username):
     return None
 
 
-@application_instance.errorhandler(500)
 def handle_error(error):
     e = {
         "title": "InternalError",
@@ -114,7 +111,6 @@ def handle_error(error):
     )
 
 
-@application_instance.errorhandler(ProcessingError)
 def handle_processing_error(error):
     e = {
         "title": str(error.__class__.__name__),
@@ -129,7 +125,6 @@ def handle_processing_error(error):
     )
 
 
-@application_instance.errorhandler(BackendError)
 def handle_backend_error(error):
     e = {
         "title": str(error.__class__.__name__),
@@ -141,3 +136,93 @@ def handle_backend_error(error):
         status=error.status,
         mimetype=MEDIA_TYPE_TAXII_V21,
     )
+
+
+def init_otel(app: Flask):
+    # OpenTelemetry initialization
+    otel_endpoint = os.environ.get('OTEL_EXPORTER_OTLP_ENDPOINT')
+    if otel_endpoint:
+        # Configure the resource
+        resource = Resource.create({
+            "service.name": os.environ.get('OTEL_SERVICE_NAME', 'ti-taxii-server'),
+            "service.version": os.environ.get("OTEL_SERVICE_VERSION", "default"),
+        })
+
+        # Create tracer provider
+        otel_endpoint_traces = f"{otel_endpoint}/v1/traces"
+        tracer_provider = TracerProvider(resource=resource)
+        trace.set_tracer_provider(tracer_provider)
+
+        # Create OTLP exporter
+        otlp_exporter = OTLPSpanExporter(endpoint=otel_endpoint_traces)
+
+        # Create span processor
+        span_processor = BatchSpanProcessor(otlp_exporter)
+        tracer_provider.add_span_processor(span_processor)
+
+        # Instrument Flask
+        FlaskInstrumentor().instrument_app(app, tracer_provider=tracer_provider, excluded_urls="/ping")
+
+
+def init_rollbar(app: Flask):
+    rollbar_token = os.environ.get('ROLLBAR_TOKEN')
+    if rollbar_token:
+        rollbar.init(
+            rollbar_token,
+            environment=os.environ.get('ENVIRONMENT', 'development'),
+            root=os.path.dirname(os.path.realpath(__file__)),
+            allow_logging_basic_config=False
+        )
+
+        got_request_exception.connect(rollbar.contrib.flask.report_exception, app)
+
+
+def set_trace_id():
+    g.trace_id = "{:08x}".format(random.randrange(0, 0x100000000))
+
+
+def log_after_request(response):
+    current_app.logger.info(response.status)
+    return response
+
+
+def set_taxii_config(flask_application_instance, config_info):
+    with flask_application_instance.app_context():
+        log.debug("Registering medallion taxii configuration into {}".format(current_app))
+        flask_application_instance.taxii_config = config_info
+
+
+def set_backend_config(flask_application_instance, config_info):
+    with flask_application_instance.app_context():
+        log.debug("Registering medallion_backend into {}".format(current_app))
+        current_app.medallion_backend = connect_to_backend(config_info)
+
+
+def register_error_handlers(app):
+    app.register_error_handler(500, handle_error)
+    app.register_error_handler(ProcessingError, handle_processing_error)
+    app.register_error_handler(BackendError, handle_backend_error)
+
+
+def create_app():
+    app = Flask(__name__)
+
+    app.logger = logging.getLogger('medallion-app')
+    app.logger.setLevel(logging.INFO)
+    handler = logging.StreamHandler()
+    app.logger.addHandler(handler)
+
+    if not app.debug:
+        # Shut up the werkzeug logger unless debugging.
+        logging.getLogger('werkzeug').setLevel(logging.CRITICAL)
+
+    _ = app.before_request(set_trace_id)
+    _ = app.after_request(log_after_request)
+
+    with app.app_context():
+        init_otel(app)
+        init_rollbar(app)
+
+    register_error_handlers(app)
+
+    return app

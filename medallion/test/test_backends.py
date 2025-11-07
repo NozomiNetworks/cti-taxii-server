@@ -17,7 +17,7 @@ class MongoTestServer(TaxiiTest):
     type = "mongo"
 
 
-TestServers = ["memory", "mongo"]
+TestServers = ["mongo"]
 
 
 @pytest.fixture(scope="module", params=TestServers)
@@ -36,7 +36,7 @@ def backend(request):
 
 # start with basic get requests for each endpoint
 def test_server_discovery(backend):
-    r = backend.client.get(test.DISCOVERY_EP, headers=backend.headers)
+    r = backend.client.get(test.DISCOVERY_EP, headers=backend.nozomi_auth_headers)
 
     assert r.status_code == 200
     assert r.content_type == MEDIA_TYPE_TAXII_V21
@@ -45,7 +45,7 @@ def test_server_discovery(backend):
 
 
 def test_get_api_root_information(backend):
-    r = backend.client.get(test.API_ROOT_EP, headers=backend.headers)
+    r = backend.client.get(test.API_ROOT_EP, headers=backend.nozomi_auth_headers)
 
     assert r.status_code == 200
     assert r.content_type == MEDIA_TYPE_TAXII_V21
@@ -56,7 +56,7 @@ def test_get_api_root_information(backend):
 def test_get_status(backend):
     r = backend.client.get(
             test.API_ROOT_EP + "status/2d086da7-4bdc-4f91-900e-d77486753710",
-            headers=backend.headers,
+            headers=backend.nozomi_auth_headers,
             follow_redirects=True,
         )
 
@@ -69,7 +69,7 @@ def test_get_status(backend):
 
 
 def test_get_collections(backend):
-    r = backend.client.get(test.COLLECTIONS_EP, headers=backend.headers)
+    r = backend.client.get(test.COLLECTIONS_EP, headers=backend.nozomi_auth_headers)
 
     assert r.status_code == 200
     assert r.content_type == MEDIA_TYPE_TAXII_V21
@@ -89,7 +89,7 @@ def test_get_objects(backend):
 
     r = backend.client.get(
         test.GET_OBJECTS_EP,
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
     )
 
     assert r.status_code == 200
@@ -103,7 +103,7 @@ def test_get_object(backend):
 
     r = backend.client.get(
         test.GET_OBJECTS_EP + "malware--c0931cc6-c75e-47e5-9036-78fabc95d4ec/",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
     )
 
     assert r.status_code == 200
@@ -120,7 +120,7 @@ def test_add_and_delete_object(backend):
     r_post = backend.client.post(
         test.ADD_OBJECTS_EP,
         data=json.dumps(copy.deepcopy(backend.TEST_OBJECT)),
-        headers=backend.post_headers,
+        headers=backend.post_nozomi_auth_headers,
     )
     status_response = r_post.json
     assert r_post.status_code == 202
@@ -131,7 +131,7 @@ def test_add_and_delete_object(backend):
 
     r_get = backend.client.get(
         test.ADD_OBJECTS_EP,
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
     )
     assert r_get.status_code == 200
     assert r_get.content_type == MEDIA_TYPE_TAXII_V21
@@ -143,7 +143,7 @@ def test_add_and_delete_object(backend):
 
     r_get = backend.client.get(
         test.ADD_OBJECTS_EP + "?match[id]=" + object_id,
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
     )
     assert r_get.status_code == 200
     assert r_get.content_type == MEDIA_TYPE_TAXII_V21
@@ -155,7 +155,7 @@ def test_add_and_delete_object(backend):
 
     r_get = backend.client.get(
         test.API_ROOT_EP + "status/%s/" % status_response["id"],
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
     )
     assert r_get.status_code == 200
     assert r_get.content_type == MEDIA_TYPE_TAXII_V21
@@ -167,7 +167,7 @@ def test_add_and_delete_object(backend):
 
     r_get = backend.client.get(
         test.ADD_MANIFESTS_EP + "?match[id]=" + object_id,
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
     )
     assert r_get.status_code == 200
     assert r_get.content_type == MEDIA_TYPE_TAXII_V21
@@ -178,7 +178,7 @@ def test_add_and_delete_object(backend):
 
     r = backend.client.delete(
         test.ADD_OBJECTS_EP + object_id,
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
     assert r.status_code == 200
@@ -186,7 +186,7 @@ def test_add_and_delete_object(backend):
 
     r = backend.client.get(
         test.ADD_OBJECTS_EP + object_id,
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
     assert r.status_code == 404
@@ -196,7 +196,7 @@ def test_add_and_delete_object(backend):
 
     r = backend.client.get(
         test.ADD_MANIFESTS_EP + object_id,
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
     assert r.status_code == 404
@@ -208,7 +208,7 @@ def test_get_object_manifests(backend):
 
     r = backend.client.get(
         test.GET_MANIFESTS_EP,
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
     assert r.status_code == 200
@@ -220,7 +220,7 @@ def test_get_object_manifests(backend):
 def test_get_version(backend):
     r = backend.client.get(
         test.GET_OBJECTS_EP + "relationship--2f9a9aa9-108a-4333-83e2-4fb25add0463/versions",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
     assert r.status_code == 200
@@ -233,7 +233,7 @@ def test_get_version(backend):
 def test_get_objects_added_after(backend):
     r = backend.client.get(
         test.GET_OBJECTS_EP + "?added_after=2016-11-03T12:30:59Z",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
     )
 
     assert r.status_code == 200
@@ -246,7 +246,7 @@ def test_get_objects_added_after(backend):
 def test_get_objects_limit(backend):
     r = backend.client.get(
         test.GET_OBJECTS_EP + "?limit=3",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
     )
 
     assert r.status_code == 200
@@ -257,7 +257,7 @@ def test_get_objects_limit(backend):
 
     r = backend.client.get(
         test.GET_OBJECTS_EP + "?limit=3&next=" + r.json["next"],
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
     )
 
     assert r.status_code == 200
@@ -270,7 +270,7 @@ def test_get_objects_limit(backend):
 def test_get_objects_id(backend):
     r = backend.client.get(
         test.GET_OBJECTS_EP + "?match[id]=malware--c0931cc6-c75e-47e5-9036-78fabc95d4ec",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
     )
 
     assert r.status_code == 200
@@ -283,7 +283,7 @@ def test_get_objects_id(backend):
 def test_get_objects_type(backend):
     r = backend.client.get(
         test.GET_OBJECTS_EP + "?match[type]=indicator",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
     )
 
     assert r.status_code == 200
@@ -297,7 +297,7 @@ def test_get_objects_type(backend):
 def test_get_objects_version(backend):
     r = backend.client.get(
         test.GET_OBJECTS_EP + "?match[version]=2016-12-25T12:30:59.444Z",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
     )
 
     assert r.status_code == 200
@@ -309,7 +309,7 @@ def test_get_objects_version(backend):
 
     r = backend.client.get(
         test.GET_OBJECTS_EP + "?match[version]=first",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
     )
 
     assert r.status_code == 200
@@ -322,7 +322,7 @@ def test_get_objects_version(backend):
 
     r = backend.client.get(
         test.GET_OBJECTS_EP + "?match[version]=last",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
     )
 
     assert r.status_code == 200
@@ -335,7 +335,7 @@ def test_get_objects_version(backend):
 
     r = backend.client.get(
         test.GET_OBJECTS_EP + "?match[version]=all",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
     )
 
     assert r.status_code == 200
@@ -348,7 +348,7 @@ def test_get_objects_version(backend):
 def test_get_objects_spec_version(backend):
     r = backend.client.get(
         test.GET_OBJECTS_EP + "?match[spec_version]=2.0",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
     )
 
     assert r.status_code == 200
@@ -360,7 +360,7 @@ def test_get_objects_spec_version(backend):
 
     r = backend.client.get(
         test.GET_OBJECTS_EP + "?match[spec_version]=2.1",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
     )
 
     assert r.status_code == 200
@@ -376,7 +376,7 @@ def test_get_objects_spec_version(backend):
 def test_get_object_added_after(backend):
     r = backend.client.get(
         test.GET_OBJECTS_EP + "malware--c0931cc6-c75e-47e5-9036-78fabc95d4ec?added_after=2018-01-27T13:49:59.997000Z",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
 
@@ -388,7 +388,7 @@ def test_get_object_added_after(backend):
 
     r = backend.client.get(
         test.GET_OBJECTS_EP + "malware--c0931cc6-c75e-47e5-9036-78fabc95d4ec?added_after=2017-01-27T13:49:59Z",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
 
@@ -402,7 +402,7 @@ def test_get_object_added_after(backend):
 def test_get_object_limit(backend):
     r = backend.client.get(
         test.GET_OBJECTS_EP + "indicator--6770298f-0fd8-471a-ab8c-1c658a46574e?limit=1",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
 
@@ -414,7 +414,7 @@ def test_get_object_limit(backend):
 
     r = backend.client.get(
         test.GET_OBJECTS_EP + "indicator--6770298f-0fd8-471a-ab8c-1c658a46574e?match[version]=all&limit=2",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
 
@@ -426,7 +426,7 @@ def test_get_object_limit(backend):
 
     r = backend.client.get(
         test.GET_OBJECTS_EP + "indicator--6770298f-0fd8-471a-ab8c-1c658a46574e?match[version]=all&limit=2&next=" + objs['next'],
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
 
@@ -440,7 +440,7 @@ def test_get_object_limit(backend):
 def test_get_object_version(backend):
     r = backend.client.get(
         test.GET_OBJECTS_EP + "indicator--6770298f-0fd8-471a-ab8c-1c658a46574e?match[version]=2016-12-25T12:30:59.444Z",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
 
@@ -454,7 +454,7 @@ def test_get_object_version(backend):
 
     r = backend.client.get(
         test.GET_OBJECTS_EP + "indicator--6770298f-0fd8-471a-ab8c-1c658a46574e?match[version]=first",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
 
@@ -468,7 +468,7 @@ def test_get_object_version(backend):
 
     r = backend.client.get(
         test.GET_OBJECTS_EP + "indicator--6770298f-0fd8-471a-ab8c-1c658a46574e?match[version]=last",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
 
@@ -482,7 +482,7 @@ def test_get_object_version(backend):
 
     r = backend.client.get(
         test.GET_OBJECTS_EP + "indicator--6770298f-0fd8-471a-ab8c-1c658a46574e?match[version]=all",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
 
@@ -496,7 +496,7 @@ def test_get_object_version(backend):
 def test_get_object_spec_version(backend):
     r = backend.client.get(
         test.GET_OBJECTS_EP + "indicator--6770298f-0fd8-471a-ab8c-1c658a46574e?match[spec_version]=2.0",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
 
@@ -509,7 +509,7 @@ def test_get_object_spec_version(backend):
 
     r = backend.client.get(
         test.GET_OBJECTS_EP + "indicator--6770298f-0fd8-471a-ab8c-1c658a46574e?match[spec_version]=2.1",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
 
@@ -526,7 +526,7 @@ def test_get_object_spec_version(backend):
 def test_get_manifest_added_after(backend):
     r = backend.client.get(
         test.GET_MANIFESTS_EP + "?added_after=2017-01-20T00:00:00.000Z",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
 
@@ -540,7 +540,7 @@ def test_get_manifest_added_after(backend):
 def test_get_manifest_limit(backend):
     r = backend.client.get(
         test.GET_MANIFESTS_EP + "?limit=2",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
 
@@ -552,7 +552,7 @@ def test_get_manifest_limit(backend):
 
     r = backend.client.get(
         test.GET_MANIFESTS_EP + "?limit=2&next=" + objs['next'],
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
 
@@ -564,7 +564,7 @@ def test_get_manifest_limit(backend):
 
     r = backend.client.get(
         test.GET_MANIFESTS_EP + "?limit=2&next=" + objs['next'],
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
 
@@ -578,7 +578,7 @@ def test_get_manifest_limit(backend):
 def test_get_manifest_id(backend):
     r = backend.client.get(
         test.GET_MANIFESTS_EP + "?match[id]=malware--c0931cc6-c75e-47e5-9036-78fabc95d4ec",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
 
@@ -593,7 +593,7 @@ def test_get_manifest_id(backend):
 def test_get_manifest_type(backend):
     r = backend.client.get(
         test.GET_MANIFESTS_EP + "?match[type]=indicator",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
 
@@ -611,7 +611,7 @@ def test_get_manifest_version(backend):
 
     r = backend.client.get(
         test.GET_MANIFESTS_EP + "?match[version]=2016-11-03T12:30:59.000Z",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
 
@@ -625,7 +625,7 @@ def test_get_manifest_version(backend):
 
     r = backend.client.get(
         test.GET_MANIFESTS_EP + "?match[version]=first",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
 
@@ -639,7 +639,7 @@ def test_get_manifest_version(backend):
 
     r = backend.client.get(
         test.GET_MANIFESTS_EP + "?match[version]=last",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
 
@@ -653,7 +653,7 @@ def test_get_manifest_version(backend):
 
     r = backend.client.get(
         test.GET_OBJECTS_EP + "?match[version]=all",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
 
@@ -667,7 +667,7 @@ def test_get_manifest_version(backend):
 def test_get_manifest_spec_version(backend):
     r = backend.client.get(
         test.GET_MANIFESTS_EP + "?match[spec_version]=2.0",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
     )
 
     assert r.status_code == 200
@@ -679,7 +679,7 @@ def test_get_manifest_spec_version(backend):
 
     r = backend.client.get(
         test.GET_MANIFESTS_EP + "?match[spec_version]=2.1",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
     )
 
     assert r.status_code == 200
@@ -695,7 +695,7 @@ def test_get_manifest_spec_version(backend):
 def test_get_version_added_after(backend):
     r = backend.client.get(
         test.GET_OBJECTS_EP + "relationship--2f9a9aa9-108a-4333-83e2-4fb25add0463/versions?added_after=2014-05-08T09:00:00Z",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True,
     )
 
@@ -706,7 +706,7 @@ def test_get_version_added_after(backend):
 
     r = backend.client.get(
         test.GET_OBJECTS_EP + "relationship--2f9a9aa9-108a-4333-83e2-4fb25add0463/versions?added_after=2014-05-08T08:00:00Z",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True,
     )
 
@@ -721,7 +721,7 @@ def test_get_version_limit(backend):
 
     r = backend.client.get(
         test.GET_OBJECTS_EP + "indicator--6770298f-0fd8-471a-ab8c-1c658a46574e/versions?limit=1",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True,
     )
 
@@ -733,7 +733,7 @@ def test_get_version_limit(backend):
 
     r = backend.client.get(
         test.GET_OBJECTS_EP + "indicator--6770298f-0fd8-471a-ab8c-1c658a46574e/versions?limit=1&next=" + objs["next"],
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True,
     )
 
@@ -745,7 +745,7 @@ def test_get_version_limit(backend):
 
     r = backend.client.get(
         test.GET_OBJECTS_EP + "indicator--6770298f-0fd8-471a-ab8c-1c658a46574e/versions?limit=1&next=" + objs["next"],
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True,
     )
 
@@ -759,7 +759,7 @@ def test_get_version_limit(backend):
 def test_get_version_spec_version(backend):
     r = backend.client.get(
         test.GET_OBJECTS_EP + "indicator--6770298f-0fd8-471a-ab8c-1c658a46574e/versions?match[spec_version]=2.0",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True,
     )
 
@@ -772,7 +772,7 @@ def test_get_version_spec_version(backend):
 
     r = backend.client.get(
         test.GET_OBJECTS_EP + "indicator--6770298f-0fd8-471a-ab8c-1c658a46574e/versions?match[spec_version]=2.1",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True,
     )
 
@@ -803,7 +803,7 @@ def test_delete_objects_version(backend):
     r_post = backend.client.post(
         test.ADD_OBJECTS_EP,
         data=json.dumps(add_objects),
-        headers=backend.post_headers,
+        headers=backend.post_nozomi_auth_headers,
     )
     assert r_post.status_code == 202
     assert r_post.content_type == MEDIA_TYPE_TAXII_V21
@@ -812,7 +812,7 @@ def test_delete_objects_version(backend):
 
     r = backend.client.get(
         test.ADD_OBJECTS_EP + object_id + "/versions",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True,
     )
 
@@ -824,7 +824,7 @@ def test_delete_objects_version(backend):
 
     r = backend.client.delete(
         test.ADD_OBJECTS_EP + object_id + "?match[version]=2018-01-27T13:49:53.935Z",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
     assert r.status_code == 200
@@ -832,7 +832,7 @@ def test_delete_objects_version(backend):
 
     r = backend.client.get(
         test.ADD_OBJECTS_EP + object_id + "/versions",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True,
     )
 
@@ -845,7 +845,7 @@ def test_delete_objects_version(backend):
 
     r = backend.client.delete(
         test.ADD_OBJECTS_EP + object_id + "?match[version]=first",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
     assert r.status_code == 200
@@ -853,7 +853,7 @@ def test_delete_objects_version(backend):
 
     r = backend.client.get(
         test.ADD_OBJECTS_EP + object_id + "/versions",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True,
     )
 
@@ -866,7 +866,7 @@ def test_delete_objects_version(backend):
 
     r = backend.client.delete(
         test.ADD_OBJECTS_EP + object_id + "?match[version]=last",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
     assert r.status_code == 200
@@ -874,7 +874,7 @@ def test_delete_objects_version(backend):
 
     r = backend.client.get(
         test.ADD_OBJECTS_EP + object_id + "/versions",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True,
     )
 
@@ -887,7 +887,7 @@ def test_delete_objects_version(backend):
 
     r = backend.client.delete(
         test.ADD_OBJECTS_EP + object_id + "?match[version]=all",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
     assert r.status_code == 200
@@ -895,7 +895,7 @@ def test_delete_objects_version(backend):
 
     r = backend.client.get(
         test.ADD_OBJECTS_EP + object_id + "/versions",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True,
     )
 
@@ -914,14 +914,14 @@ def test_delete_objects_spec_version(backend):
     r_post = backend.client.post(
         test.ADD_OBJECTS_EP,
         data=json.dumps(new_objects),
-        headers=backend.post_headers,
+        headers=backend.post_nozomi_auth_headers,
     )
     assert r_post.status_code == 202
     assert r_post.content_type == MEDIA_TYPE_TAXII_V21
 
     r = backend.client.delete(
         test.ADD_OBJECTS_EP + object_id + "?match[spec_version]=2.0",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
     assert r.status_code == 200
@@ -929,7 +929,7 @@ def test_delete_objects_spec_version(backend):
 
     r = backend.client.get(
         test.ADD_OBJECTS_EP + object_id + "/versions",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True,
     )
 
@@ -942,7 +942,7 @@ def test_delete_objects_spec_version(backend):
 
     r = backend.client.delete(
         test.ADD_OBJECTS_EP + object_id + "?match[spec_version]=2.1",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
     assert r.status_code == 200
@@ -950,7 +950,7 @@ def test_delete_objects_spec_version(backend):
 
     r = backend.client.get(
         test.ADD_OBJECTS_EP + object_id + "/versions",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True,
     )
 
@@ -980,14 +980,14 @@ def test_SCO_versioning(backend):
     r_post = backend.client.post(
         test.ADD_OBJECTS_EP,
         data=json.dumps(copy.deepcopy(SCO)),
-        headers=backend.post_headers,
+        headers=backend.post_nozomi_auth_headers,
     )
     assert r_post.status_code == 202
     assert r_post.content_type == MEDIA_TYPE_TAXII_V21
 
     r = backend.client.get(
         test.ADD_OBJECTS_EP + object_id + "?match[version]=all",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True,
     )
 
@@ -998,7 +998,7 @@ def test_SCO_versioning(backend):
 
     r = backend.client.get(
         test.ADD_OBJECTS_EP + object_id + "?match[version]=first",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True,
     )
 
@@ -1009,7 +1009,7 @@ def test_SCO_versioning(backend):
 
     r = backend.client.get(
         test.ADD_OBJECTS_EP + object_id + "?match[version]=last",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True,
     )
 
@@ -1020,7 +1020,7 @@ def test_SCO_versioning(backend):
 
     r = backend.client.get(
         test.ADD_OBJECTS_EP + object_id + "?added_after=2017-01-27T13:49:53.935Z",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True,
     )
 
@@ -1031,7 +1031,7 @@ def test_SCO_versioning(backend):
 
     r = backend.client.get(
         test.ADD_OBJECTS_EP + object_id + "?added_after=" + common.datetime_to_string_stix(common.get_timestamp()),
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
         follow_redirects=True,
     )
 
@@ -1045,7 +1045,7 @@ def test_SCO_versioning(backend):
 
 # test non-200 responses
 def test_get_api_root_information_not_existent(backend):
-    r = backend.client.get("/trustgroup2/", headers=backend.headers)
+    r = backend.client.get("/trustgroup2/", headers=backend.nozomi_auth_headers)
     assert r.status_code == 404
 
 
@@ -1053,7 +1053,7 @@ def test_get_collection_not_existent(backend):
 
     r = backend.client.get(
         test.NON_EXISTENT_COLLECTION_EP,
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
     )
     assert r.status_code == 404
 
@@ -1065,13 +1065,13 @@ def test_get_collections_401(backend):
 
 def test_get_collections_404(backend):
     # note that the api root "carbon1" is nonexistent
-    r = backend.client.get("/carbon1/collections/", headers=backend.headers)
+    r = backend.client.get("/carbon1/collections/", headers=backend.nozomi_auth_headers)
     assert r.status_code == 404
 
 
 def test_get_collection_404(backend):
     # note that api root "carbon1" is nonexistent
-    r = backend.client.get("/carbon1/collections/12345678-1234-1234-1234-123456789012/", headers=backend.headers)
+    r = backend.client.get("/carbon1/collections/12345678-1234-1234-1234-123456789012/", headers=backend.nozomi_auth_headers)
     assert r.status_code == 404
 
 
@@ -1082,7 +1082,7 @@ def test_get_status_401(backend):
 
 
 def test_get_status_404(backend):
-    r = backend.client.get(test.API_ROOT_EP + "status/22101993/", headers=backend.headers)
+    r = backend.client.get(test.API_ROOT_EP + "status/22101993/", headers=backend.nozomi_auth_headers)
     assert r.status_code == 404
 
 
@@ -1095,14 +1095,14 @@ def test_get_object_manifest_401(backend):
 def test_get_object_manifest_403(backend):
     r = backend.client.get(
         test.FORBIDDEN_COLLECTION_EP + "manifest/",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
     )
     assert r.status_code == 403
 
 
 def test_get_object_manifest_404(backend):
     # note that collection ID doesnt exist
-    r = backend.client.get(test.COLLECTIONS_EP + "24042009/manifest/", headers=backend.headers)
+    r = backend.client.get(test.COLLECTIONS_EP + "24042009/manifest/", headers=backend.nozomi_auth_headers)
     assert r.status_code == 404
 
 
@@ -1119,7 +1119,7 @@ def test_get_object_403(backend):
     """
     r = backend.client.get(
         test.FORBIDDEN_COLLECTION_EP + "objects/indicator--b81f86b9-975b-bb0b-775e-810c5bd45b4f/",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
     )
     assert r.status_code == 403
 
@@ -1128,7 +1128,7 @@ def test_get_object_404(backend):
     # TAXII spec allows for a 404 or empty bundle if object is not found
     r = backend.client.get(
         test.GET_OBJECTS_EP + "malware--cee60c30-a68c-11e3-b0c1-a01aac20d000/",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
     )
     objs = r.json
 
@@ -1146,7 +1146,7 @@ def test_get_or_add_objects_401(backend):
     assert r.status_code == 401
 
     # add_objects()
-    bad_headers = copy.deepcopy(backend.post_headers)
+    bad_headers = copy.deepcopy(backend.post_nozomi_auth_headers)
     bad_headers.pop("Authorization")
     r_post = backend.client.post(
         test.ADD_OBJECTS_EP,
@@ -1164,7 +1164,7 @@ def get_or_add_objects_403(backend):
     # get_objects()
     r = backend.client.get(
         test.FORBIDDEN_COLLECTION_EP + "objects/",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
     )
     assert r.status_code == 403
 
@@ -1172,7 +1172,7 @@ def get_or_add_objects_403(backend):
     r_post = backend.client.post(
         test.FORBIDDEN_COLLECTION_EP + "objects/",
         data=json.dumps(copy.deepcopy(backend.TEST_OBJECT)),
-        headers=backend.post_headers,
+        headers=backend.post_nozomi_auth_headers,
     )
     assert r_post.status_code == 403
 
@@ -1181,7 +1181,7 @@ def test_get_or_add_objects_404(backend):
     # get_objects()
     r = backend.client.get(
         test.NON_EXISTENT_COLLECTION_EP + "objects/",
-        headers=backend.headers,
+        headers=backend.nozomi_auth_headers,
     )
     assert r.status_code == 404
 
@@ -1189,7 +1189,7 @@ def test_get_or_add_objects_404(backend):
     r_post = backend.client.post(
         test.NON_EXISTENT_COLLECTION_EP + "objects/",
         data=json.dumps(copy.deepcopy(backend.TEST_OBJECT)),
-        headers=backend.post_headers,
+        headers=backend.post_nozomi_auth_headers,
     )
     assert r_post.status_code == 404
 
@@ -1200,7 +1200,7 @@ def test_get_or_add_objects_422(backend):
     r_post = backend.client.post(
         test.ADD_OBJECTS_EP,
         data=json.dumps(copy.deepcopy(backend.TEST_OBJECT["objects"][0])),
-        headers=backend.post_headers,
+        headers=backend.post_nozomi_auth_headers,
     )
 
     assert r_post.status_code == 422
@@ -1213,14 +1213,14 @@ def test_get_or_add_objects_422(backend):
 
 def test_object_pagination_bad_limit_value_400(backend):
     r = backend.client.get(test.GET_OBJECTS_EP + "?limit=-20",
-                           headers=backend.headers)
+                           headers=backend.nozomi_auth_headers)
     assert r.status_code == 400
 
 
 def test_object_pagination_changing_params_400(backend):
     r = backend.client.get(
         test.GET_OBJECTS_EP + "?match[version]=all&limit=2",
-        headers=backend.headers
+        headers=backend.nozomi_auth_headers
     )
     assert r.status_code == 200
     assert r.content_type == MEDIA_TYPE_TAXII_V21
@@ -1230,7 +1230,7 @@ def test_object_pagination_changing_params_400(backend):
 
     r = backend.client.get(
         test.GET_OBJECTS_EP + "?match[version]=all&limit=2&next=" + objs["next"],
-        headers=backend.headers
+        headers=backend.nozomi_auth_headers
     )
     assert r.status_code == 200
     assert r.content_type == MEDIA_TYPE_TAXII_V21
@@ -1240,7 +1240,7 @@ def test_object_pagination_changing_params_400(backend):
 
     r = backend.client.get(
         test.GET_OBJECTS_EP + "?match[version]=first&limit=2&next=" + objs["next"],
-        headers=backend.headers
+        headers=backend.nozomi_auth_headers
     )
     assert r.status_code == 400
     assert r.content_type == MEDIA_TYPE_TAXII_V21

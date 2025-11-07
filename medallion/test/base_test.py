@@ -1,7 +1,7 @@
 import base64
 import os
 
-from medallion import application_instance, register_blueprints, set_config
+from medallion import register_blueprints, set_config, create_app
 from medallion.test.data.initialize_mongodb import reset_db
 
 
@@ -74,10 +74,11 @@ class TaxiiTest():
         "backend": {
             "module": "medallion.backends.mongodb_backend",
             "module_class": "MongoBackend",
-            "uri": "mongodb://travis:test@127.0.0.1:27017/",
+            "uri": "mongodb://root:example@127.0.0.1:27017/",
         },
         "users": {
             "root": "example",
+            "nozominetworks": "test",
         },
         "taxii": {
             "max_page_size": 20,
@@ -86,8 +87,8 @@ class TaxiiTest():
 
     def setUp(self):
         self.__name__ = self.type
-        self.app = application_instance
-        self.app_context = application_instance.app_context()
+        self.app = create_app()
+        self.app_context = self.app.app_context()
         self.app_context.push()
         self.app.testing = True
         register_blueprints(self.app)
@@ -109,7 +110,7 @@ class TaxiiTest():
         set_config(self.app, "backend", self.configuration)
         set_config(self.app, "users", self.configuration)
         set_config(self.app, "taxii", self.configuration)
-        self.client = application_instance.test_client()
+        self.client = self.app.test_client()
         if self.type == "memory_no_config" or self.type == "no_auth":
             encoded_auth = "Basic " + \
                 base64.b64encode(b"user:pass").decode("ascii")
@@ -124,6 +125,15 @@ class TaxiiTest():
             "Content-Type": "application/taxii+json;version=2.1",
             "Accept": "application/taxii+json;version=2.1",
             "Authorization": encoded_auth
+        }
+        self.nozomi_auth_headers = {
+            'Accept': "application/taxii+json;version=2.1",
+            'Authorization': 'Basic bm96b21pbmV0d29ya3M6dGVzdA=='  # nozominetworks:test
+        }
+        self.post_nozomi_auth_headers = {
+            "Content-Type": "application/taxii+json;version=2.1",
+            "Accept": "application/taxii+json;version=2.1",
+            'Authorization': 'Basic bm96b21pbmV0d29ya3M6dGVzdA=='  # nozominetworks:test
         }
 
     def tearDown(self):
