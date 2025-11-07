@@ -55,7 +55,7 @@ setup(
         "jsonmerge",
         "packaging",
         "pytz",
-        "six"
+        "six",
         "rollbar",
         "opentelemetry-api",
         "opentelemetry-sdk",
