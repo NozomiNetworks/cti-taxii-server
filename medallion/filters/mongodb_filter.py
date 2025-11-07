@@ -1,6 +1,6 @@
 import pymongo
 
-from ..common import datetime_to_float, string_to_datetime
+from ..common import datetime_to_float, string_to_datetime, cast_filter_match_version_to_dates
 from .basic_filter import BasicFilter
 
 
@@ -85,7 +85,7 @@ class MongoDBFilter(BasicFilter):
             if not match_version:
                 match_version = "last"
             if "all" not in match_version:
-                actual_dates = [datetime_to_float(string_to_datetime(x)) for x in match_version.split(",") if (x != "first" and x != "last")]
+                actual_dates = cast_filter_match_version_to_dates(match_version)
                 # If specific dates have been selected, then we add these to the $match criteria
                 # created from the self.full_query at the beginning of this method. This will make
                 # sure we can pick the correct manifests even if `added_after` later modifies this results.

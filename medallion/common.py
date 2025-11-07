@@ -7,6 +7,14 @@ import pytz
 from six import iteritems
 
 
+def cast_filter_match_version_to_dates(match_version: str) -> list[float]:
+    """Given a match_version string from a filter, return a list of datetime instances."""
+    return [
+        datetime_to_float(string_to_datetime(x))
+        for x in match_version.split(",") if (x != "first" and x != "last")
+    ]
+
+
 def create_resource(resource_name, items, more=False, next_id=None):
     """Generates a Resource Object given a resource name."""
     resource = {}
@@ -150,8 +158,12 @@ def float_to_datetime(timestamp_float):
     return dt.datetime.utcfromtimestamp(timestamp_float)
 
 
-def string_to_datetime(timestamp_string):
+def string_to_datetime(timestamp_string: str) -> dt.datetime:
     """Convert string timestamp to datetime instance."""
+    # Probably to support not strictly compliant timestamps
+    if not timestamp_string.endswith('Z'):
+        timestamp_string = f"{timestamp_string}Z"
+
     try:
         return dt.datetime.strptime(timestamp_string, "%Y-%m-%dT%H:%M:%S.%fZ")
     except ValueError:
@@ -159,8 +171,8 @@ def string_to_datetime(timestamp_string):
 
 
 def generate_status(
-    request_time, status, succeeded, failed, pending,
-    successes=None, failures=None, pendings=None,
+        request_time, status, succeeded, failed, pending,
+        successes=None, failures=None, pendings=None,
 ):
     """Generate Status Resource as defined in TAXII 2.1 section (4.3.1) <link here>`__."""
     status = {
