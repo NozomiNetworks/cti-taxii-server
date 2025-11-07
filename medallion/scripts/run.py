@@ -18,6 +18,7 @@ log = logging.getLogger("medallion")
 class NewlinesHelpFormatter(argparse.RawDescriptionHelpFormatter):
     """Custom help formatter to insert newlines between argument help texts.
     """
+
     def _split_lines(self, text, width):
         text = self._whitespace_matcher.sub(" ", text).strip()
         txt = textwrap.wrap(text, width)
@@ -80,8 +81,7 @@ def _get_argparser():
         ),
         help=inspect.cleandoc(f"""
             Path to a single configuration file. Defaults to the value of
-            the MEDALLION_CONFFILE environment variable or
-            {medallion.config.DEFAULT_CONFFILE}.
+            the MEDALLION_CONFFILE environment variable or {medallion.config.DEFAULT_CONFFILE}.
         """),
     )
     config_dir_group = parser.add_mutually_exclusive_group()
@@ -93,8 +93,7 @@ def _get_argparser():
         help=inspect.cleandoc(f"""
             Path to a directory containing JSON configuration files with names
             ending in .json or .conf. Defaults to the value of the
-            MEDALLION_CONFDIR environment variable or
-            {medallion.config.DEFAULT_CONFDIR}.
+            MEDALLION_CONFDIR environment variable or {medallion.config.DEFAULT_CONFDIR}.
         """),
     )
     config_dir_group.add_argument(
@@ -131,7 +130,8 @@ def main():
     set_config(APPLICATION_INSTANCE, "taxii", configuration)
     set_config(APPLICATION_INSTANCE, "backend", configuration)
 
-    APPLICATION_INSTANCE.medallion_backend = connect_to_backend(get_application_instance_config_values(APPLICATION_INSTANCE, "backend"))
+    APPLICATION_INSTANCE.medallion_backend = connect_to_backend(
+        get_application_instance_config_values(APPLICATION_INSTANCE, "backend"))
     if (not APPLICATION_INSTANCE.blueprints):
         register_blueprints(APPLICATION_INSTANCE)
 
