@@ -51,5 +51,4 @@ jobs:
       run: |
         pip install -r requirements.txt
         pip install pymongo
-        pytest -vv medallion/test/unit
-        pytest -vv medallion/test/test_mongodb_backend.py
+        pytest -vv medallion/test/test_backends.py
