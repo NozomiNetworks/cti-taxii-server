@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.8, 3.9, '3.10']
+        python-version: ['3.13']
 
     name: Python ${{ matrix.python-version }} Build
     steps:
@@ -43,7 +43,12 @@ jobs:
         ps aux
     - name: Create test user
       run: |
-        mongosh admin --eval 'db.createUser({user:"travis",pwd:"test",roles:[{role:"root",db:"admin"}]});'
+        mongosh admin --eval 'db.createUser({user:"root",pwd:"example",roles:[{role:"root",db:"admin"}]});'
     - name: Test with Tox
       run: |
         tox
+    - name: Test with pytest
+      run: |
+        pip install -r requirements.txt
+        pip install pymongo
+        pytest -vv medallion/test/test_backends.py
