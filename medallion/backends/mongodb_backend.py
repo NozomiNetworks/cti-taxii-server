@@ -22,6 +22,7 @@ from ..exceptions import (
 )
 from ..filters.mongodb_filter import MongoDBFilter
 from .base import Backend
+from ..filters.mongodb_next_gen_filter import MongoDBNextGenFilter
 
 # Module-level logger
 log = logging.getLogger(__name__)
@@ -302,19 +303,19 @@ class MongoBackend(Backend):
     @catch_mongodb_error
     def get_objects(self, api_root, collection_id, filter_args, allowed_filters, limit):
         api_root_db = self.client[api_root]
-        objects_info = api_root_db["objects"]
-        next_id, record = self._process_params(filter_args, limit)
+        # next_id, record = self._process_params(filter_args, limit)
 
-        full_filter = MongoDBFilter(
+        full_filter_next_gen = MongoDBNextGenFilter(
             filter_args,
             {"_collection_id": {"$eq": collection_id}},
             allowed_filters,
-            record
+            api_root_db,
+            {"next": filter_args.get("next"), "limit": limit}
         )
+
         # Note: error handling was not added to following call as mongo will
         # handle (user supplied) filters gracefully if they don't exist
-        count, objects_found = full_filter.process_filter(
-            objects_info,
+        objects_found, _next = full_filter_next_gen.process_next_gen_filter(
             allowed_filters,
             "objects"
         )
@@ -325,11 +326,19 @@ class MongoBackend(Backend):
             if "created" in obj:
                 obj["created"] = datetime_to_string_stix(float_to_datetime(obj["created"]))
 
-        manifest_resource = self._get_object_manifest(api_root, collection_id, filter_args, allowed_filters, limit, True)
-        headers = get_custom_headers(manifest_resource)
+        # manifest_resource = self._get_object_manifest(api_root, collection_id, filter_args, allowed_filters, limit, True)
+        headers = get_custom_headers([obj["_manifest"] for obj in objects_found])
 
-        next_id, more = self._update_record(next_id, count)
+        next_id, more = _next, _next is not None
+        self._clean_results(objects_found)
         return create_resource("objects", objects_found, more, next_id), headers
+
+    @staticmethod
+    def _clean_results(results: list[dict]):
+        for res in results:
+            del res["_id"]
+            del res["_manifest"]
+            del res["_collection_id"]
 
     @catch_mongodb_error
     def _add_status(self, api_root_name, status):
@@ -379,15 +388,22 @@ class MongoBackend(Backend):
 
                     ## upsert the latest version in the cache
                     objects_cache_info.update_one(
-                        filter={"stix_id": new_obj["id"], "collection_id": collection_id},
+                        filter={"id": new_obj["id"], "collection_id": collection_id},
                         update={"$max": {"latest_version": obj_version_float}},
                         upsert=True
                     )
 
                     ## upsert the first version in the cache
                     objects_cache_info.update_one(
-                        filter={"stix_id": new_obj["id"], "collection_id": collection_id},
-                        update={"$min": {"first_version": obj_version_float}},
+                        filter={"id": new_obj["id"], "collection_id": collection_id},
+                        update={"$min": {"earliest_version": obj_version_float}},
+                        upsert=True
+                    )
+
+                    ## upsert the last version if specs
+                    objects_cache_info.update_one(
+                        filter={"id": new_obj["id"], "collection_id": collection_id},
+                        update={"$min": {"last_spec": new_obj["_manifest"]["media_type"]}},
                         upsert=True
                     )
 
