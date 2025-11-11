@@ -340,6 +340,7 @@ class MongoBackend(Backend):
     def add_objects(self, api_root, collection_id, objs, request_time):
         api_root_db = self.client[api_root]
         objects_info = api_root_db["objects"]
+        objects_cache_info = api_root_db["objects_version_cache"]
         failed = 0
         succeeded = 0
         pending = 0
@@ -355,6 +356,7 @@ class MongoBackend(Backend):
                     mongo_query["_manifest.version"] = datetime_to_float(string_to_datetime(new_obj["modified"]))
                 existing_entry = objects_info.find_one(mongo_query)
                 obj_version = determine_version(new_obj, request_time)
+                obj_version_float = datetime_to_float(string_to_datetime(obj_version))
 
                 if existing_entry:
                     message = "Object already added"
@@ -369,11 +371,26 @@ class MongoBackend(Backend):
                     _manifest = {
                         "id": new_obj["id"],
                         "date_added": datetime_to_float(request_time),
-                        "version": datetime_to_float(string_to_datetime(obj_version)),
+                        "version": obj_version_float,
                         "media_type": media_type,
                     }
                     new_obj.update({"_manifest": _manifest})
                     objects_info.insert_one(new_obj)
+
+                    ## upsert the latest version in the cache
+                    objects_cache_info.update_one(
+                        filter={"stix_id": new_obj["id"], "collection_id": collection_id},
+                        update={"$max": {"latest_version": obj_version_float}},
+                        upsert=True
+                    )
+
+                    ## upsert the first version in the cache
+                    objects_cache_info.update_one(
+                        filter={"stix_id": new_obj["id"], "collection_id": collection_id},
+                        update={"$min": {"first_version": obj_version_float}},
+                        upsert=True
+                    )
+
                     self._update_manifest(api_root, collection_id, media_type)
 
                 # else: we already have the object, so this is a
@@ -520,6 +537,10 @@ class MongoBackend(Backend):
                 api_db.create_collection("status")
             api_db.create_collection("collections")
             api_db.create_collection("objects")
+
+            # Cache objects version to keep track of the latest object's version
+            api_db.create_collection("objects_version_cache")
+
             for collection in api_root_data["collections"]:
                 collection_id = collection["id"]
                 objects = collection["objects"]
