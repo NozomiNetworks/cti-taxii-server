@@ -27,19 +27,19 @@ class MongoDBNextGenFilter(MongoDBFilter):
         if match_version is None or "all" in match_version:
             results, _next = self._get_all_objects_next(pipeline)
 
-        elif "last" in match_version:
+        elif "last" == match_version:
             results, _next = self._get_last_objects_next(pipeline)
 
-        elif "first" in match_version:
+        elif "first" == match_version:
             results, _next = self._get_first_objects_next(pipeline)
 
         elif "," in match_version:
-            # Combined filters
             results, _next = self._get_combined_objects_next(pipeline)
+
         else:
-            # Specific version provided
             results, _next = self._get_specific_version_objects_next(pipeline, match_version)
 
+        # Sort the results, which may be out of order due to sorting by _id
         results.sort(key=lambda x: x["_manifest"]["date_added"])
         return results, str(_next) if _next else None
 
@@ -56,11 +56,12 @@ class MongoDBNextGenFilter(MongoDBFilter):
         return match_version
 
     def _get_all_objects_next(self, pipeline: dict) -> tuple[list[dict], str | None]:
+        """Get all versions of each object."""
         results = self._get_sorted_results_with_next_limit_on_objects(pipeline, self.limit + 1)
         return results[:-1], results[-1]["_id"] if len(results) > self.limit else None
 
     def _get_specific_version_objects_next(self, pipeline: dict, version: str) -> tuple[list[dict], str | None]:
-        # Not sure if comparing datetime as float is the best way maybe we should compare with an interval
+        """Get only the specific version of each object."""
         pipeline.update({"_manifest.version": {"$eq": datetime_to_float(string_to_datetime(version))}})
 
         results = self._get_sorted_results_with_next_limit_on_objects(pipeline, self.limit + 1)
@@ -70,9 +71,11 @@ class MongoDBNextGenFilter(MongoDBFilter):
         return results, None
 
     def _get_last_objects_next(self, pipeline: dict) -> tuple[list[dict], str | None]:
+        """Get only the last versions of each object."""
         return self._get_oversampled_objects_next(pipeline, "latest_version")
 
     def _get_first_objects_next(self, pipeline: dict) -> tuple[list[dict], str | None]:
+        """Get only the first versions of each object."""
         return self._get_oversampled_objects_next(pipeline, "earliest_version")
 
     def _get_oversampled_objects_next(self, pipeline: dict, cache_field: str) -> tuple[list[dict], str | None]:
@@ -205,6 +208,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
         return results[:self.limit], results[self.limit]["_id"] if len(results) > self.limit else None
 
     def _create_comparison_tuple(self, obj: dict, match_version: str) -> tuple:
+        """Create a tuple for comparison based on the filter specified in match_version."""
         t = [obj["id"], obj["_manifest"]["media_type"], ]
         if "last" in match_version or "latest_version" in match_version:
             t.append(obj["_manifest"]["version"])
@@ -214,10 +218,15 @@ class MongoDBNextGenFilter(MongoDBFilter):
         return len(temp_results) == 1 and temp_results[0]["_id"] == ObjectId(self.next)
 
     def _get_sorted_results_with_next_limit_on_objects(self, pipeline: dict, limit: int) -> list[dict]:
+        """Get sorted results by _id with next and limit on objects collection.
+
+        This is the basic method to retrieve the results from the objects collection.
+        """
         self._append_next_if_exists(pipeline)
         results = list(self.api_root_db.objects.find(pipeline).sort({"_id": 1}).limit(limit))
         return results
 
     def _append_next_if_exists(self, pipeline: dict):
+        """Append the next parameter to the pipeline if it exists."""
         if self.next:
             pipeline.update({"_id": {"$gte": ObjectId(self.next)}})
