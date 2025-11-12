@@ -14,11 +14,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
         self.record = record
         self.api_root_db = api_root_db
 
-    def process_next_gen_filter(self, allowed: tuple[str], manifest_info: str) -> tuple[list[dict], str | None]:
-        if manifest_info != "objects":
-            # Define what to do for manifests
-            return [], None
-
+    def process_objects_next_gen_filter(self, allowed: tuple[str]) -> tuple[list[dict], str | None]:
         # Basic filter pipeline with id, type, added_after, spec_version
         # collection_id is part of the basic filter
         pipeline = self.full_query
