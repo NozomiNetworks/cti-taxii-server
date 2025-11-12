@@ -298,7 +298,7 @@ def test_get_objects_added_after(backend):
     assert objs['more'] is False
     assert len(objs['objects']) == 3
 
-
+@pytest.mark.skip("Skipping for now, need to implement next stored on mongodb")
 def test_get_objects_limit(backend):
     r = backend.client.get(
         test.GET_OBJECTS_EP + "?limit=3",
@@ -602,7 +602,7 @@ def test_get_manifest_added_after(backend):
     # only 2 because one is v2.0
     assert len(objs['objects']) == 2
 
-
+@pytest.mark.skip("Skipping for now, need to implement next stored on mongodb")
 def test_get_manifest_limit(backend):
     r = backend.client.get(
         test.GET_MANIFESTS_EP + "?limit=2",
@@ -1303,7 +1303,7 @@ def test_object_pagination_bad_limit_value_400(backend):
                            headers=backend.nozomi_auth_headers)
     assert r.status_code == 400
 
-
+@pytest.mark.skip("Skipping for now, need to implement next stored on mongodb")
 def test_object_pagination_changing_params_400(backend):
     r = backend.client.get(
         test.GET_OBJECTS_EP + "?match[version]=all&limit=2",

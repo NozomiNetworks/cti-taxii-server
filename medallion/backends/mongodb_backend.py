@@ -280,11 +280,11 @@ class MongoBackend(Backend):
 
         results, _next = full_filter_next_gen.process_objects_next_gen_filter(allowed_filters)
 
-        manifest_resource = {"objects": [obj['_manifest'] for obj in results]}
+        manifest_resource = self._get_object_manifest(api_root, collection_id, filter_args, ("id", "type", "version", "spec_version"), limit)
         headers = get_custom_headers(manifest_resource)
 
         next_id, more = _next, _next is not None
-        return create_resource("versions", manifest_resource, more, next_id), headers
+        return create_resource("objects", manifest_resource["objects"], more, next_id), headers
 
     @catch_mongodb_error
     def get_api_root_information(self, api_root_name):
@@ -334,10 +334,11 @@ class MongoBackend(Backend):
             if "created" in obj:
                 obj["created"] = datetime_to_string_stix(float_to_datetime(obj["created"]))
 
-        manifest_resource = {"objects": [obj["_manifest"] for obj in objects_found]}
+        next_id, more = _next, _next is not None
+
+        manifest_resource = self._get_object_manifest(api_root, collection_id, filter_args, ("id", "type", "version", "spec_version"), limit)
         headers = get_custom_headers(manifest_resource)
 
-        next_id, more = _next, _next is not None
         self._clean_results(objects_found)
         return create_resource("objects", objects_found, more, next_id), headers
 
@@ -411,7 +412,7 @@ class MongoBackend(Backend):
                     ## upsert the last version if specs
                     objects_cache_info.update_one(
                         filter={"id": new_obj["id"], "collection_id": collection_id},
-                        update={"$min": {"last_spec": new_obj["_manifest"]["media_type"]}},
+                        update={"$max": {"last_spec": new_obj["_manifest"]["media_type"]}},
                         upsert=True
                     )
 
@@ -576,13 +577,36 @@ class MongoBackend(Backend):
                 for obj in objects:
                     obj["_collection_id"] = collection_id
                     obj["_manifest"] = find_manifest_entries_for_id(obj, manifest)
+                    obj_version_float = datetime_to_float(string_to_datetime(obj["_manifest"]["version"]))
                     obj["_manifest"]["date_added"] = datetime_to_float(string_to_datetime(obj["_manifest"]["date_added"]))
-                    obj["_manifest"]["version"] = datetime_to_float(string_to_datetime(obj["_manifest"]["version"]))
+                    obj["_manifest"]["version"] = obj_version_float
                     obj["created"] = datetime_to_float(string_to_datetime(obj["created"]))
                     if "modified" in obj:
                         # not for data markings
                         obj["modified"] = datetime_to_float(string_to_datetime(obj["modified"]))
                     api_db["objects"].insert_one(obj)
+
+                    ## upsert the latest version in the cache
+                    api_db["objects_version_cache"].update_one(
+                        filter={"id": obj["id"], "collection_id": collection_id},
+                        update={"$max": {"latest_version": obj_version_float}},
+                        upsert=True
+                    )
+
+                    ## upsert the first version in the cache
+                    api_db["objects_version_cache"].update_one(
+                        filter={"id": obj["id"], "collection_id": collection_id},
+                        update={"$min": {"earliest_version": obj_version_float}},
+                        upsert=True
+                    )
+
+                    ## upsert the last version if specs
+                    api_db["objects_version_cache"].update_one(
+                        filter={"id": obj["id"], "collection_id": collection_id},
+                        update={"$max": {"last_spec": obj["_manifest"]["media_type"]}},
+                        upsert=True
+                    )
+
                 id_index = IndexModel([("id", ASCENDING)])
                 type_index = IndexModel([("type", ASCENDING)])
                 collection_index = IndexModel([("_collection_id", ASCENDING)])
