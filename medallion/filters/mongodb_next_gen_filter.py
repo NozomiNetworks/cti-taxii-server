@@ -79,6 +79,10 @@ class MongoDBNextGenFilter(MongoDBFilter):
         return self._get_oversampled_objects_next(pipeline, "earliest_version")
 
     def _get_oversampled_objects_next(self, pipeline: dict, cache_field: str) -> tuple[list[dict], str | None]:
+        """Oversampling searches, which uses the cache to retrieve the correct results.
+
+        It is used when filtering for last or first version only.
+        """
         results = []
 
         cache_field += self._get_suffix_by_match_filters()
@@ -98,7 +102,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
             matching_docs = self.api_root_db.objects_version_cache.find({"$or": query_conditions})
 
             # 4. Filter: keep only docs where doc._version == cache.latest_version
-            # The filter take in consideration the media type searched.
+            # The filter takes in consideration the media type searched.
             # If both are specified, it takes both for the matching filter.
             # If none is specified instead, it takes the most recent (2.1 and eventually 2.0)
             if cache_field.endswith("_2_0_2_1"):
@@ -125,6 +129,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
         return results[:self.limit], results[self.limit]["_id"] if len(results) > self.limit else None
 
     def _get_combined_objects_next(self, pipeline: dict) -> tuple[list[dict], str | None]:
+        """Oversampling searches with multiple filters."""
         match_version = self.filter_args.get("match[version]")
         version_dates = [
             datetime_to_float(string_to_datetime(x))
