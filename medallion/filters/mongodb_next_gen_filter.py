@@ -81,14 +81,13 @@ class MongoDBNextGenFilter(MongoDBFilter):
     def _get_oversampled_objects_next(self, pipeline: dict, cache_field: str) -> tuple[list[dict], str | None]:
         results = []
 
-        if '_manifest.media_type' not in self.full_query:
-            cache_field += "_2_1"
-        elif "$in" in self.full_query['_manifest.media_type']:
-            cache_field += "_2_0_2_1"
-        elif self.full_query['_manifest.media_type']['$eq'] == 'application/stix+json;version=2.0':
-            cache_field += "_2_0"
-        else:
-            cache_field += "_2_1"
+        if '_manifest.media_type' in self.full_query:
+            if "$in" in self.full_query['_manifest.media_type']:
+                cache_field += "_2_0_2_1"
+            elif self.full_query['_manifest.media_type']['$eq'] == 'application/stix+json;version=2.0':
+                cache_field += "_2_0"
+            else:
+                cache_field += "_2_1"
 
         while len(results) < self.limit + 1:
             # 1. Fetch batch: pageSize × OVERSAMPLING_FACTOR documents (sorted by _id)
@@ -101,42 +100,28 @@ class MongoDBNextGenFilter(MongoDBFilter):
                 break
 
             # 3. Bulk query cache for latest/earliest versions
-            if cache_field.endswith("_2_0_2_1"):
-                query_conditions = [
-                    {
-                        "id": obj["id"],
-                        "$or": [
-                            {cache_field.replace("_2_1", ""): obj["_manifest"]["version"]},
-                            {cache_field.replace("_2_0", ""): obj["_manifest"]["version"]},
-                        ],
-                    }
-                    for obj in temp_results
-                ]
-            else:
-                query_conditions = [
-                    {
-                        "id": obj["id"],
-                        cache_field: obj["_manifest"]["version"],
-                    }
-                    for obj in temp_results
-                ]
+            query_conditions = [{"id": obj["id"]} for obj in temp_results]
 
             matching_docs = self.api_root_db.objects_version_cache.find({"$or": query_conditions})
 
             if cache_field.endswith("_2_0_2_1"):
                 matching_tuples = {(doc["id"], doc[cache_field.replace("_2_0", "")]) for doc in matching_docs}
                 matching_tuples.update({(doc["id"], doc[cache_field.replace("_2_1", "")]) for doc in matching_docs})
-            else:
+            elif cache_field.endswith("_2_0") or cache_field.endswith("_2_1"):
                 matching_tuples = {(doc["id"], doc[cache_field]) for doc in matching_docs}
+            else:
+                matching_tuples = {
+                    (doc["id"], doc.get(f"{cache_field}_2_1") or doc.get(f"{cache_field}_2_0")) for doc in matching_docs
+                }
 
             # 4. Filter: keep only docs where doc._version == cache.latest_version
+
             results.extend(
                 [
                     temp_result for temp_result in temp_results
                     if (temp_result["id"], temp_result["_manifest"]["version"]) in matching_tuples
                 ]
             )
-
             # 5. Update cursor to last _id seen
             self.next = str(temp_results[-1]["_id"])
 
@@ -155,6 +140,15 @@ class MongoDBNextGenFilter(MongoDBFilter):
 
         results = []
 
+        suffix = ""
+        if '_manifest.media_type' in self.full_query:
+            if "$in" in self.full_query['_manifest.media_type']:
+                suffix = "_2_0_2_1"
+            elif self.full_query['_manifest.media_type']['$eq'] == 'application/stix+json;version=2.0':
+                suffix = "_2_0"
+            else:
+                suffix = "_2_1"
+
         while len(results) < self.limit + 1:
             # 1. Fetch batch: pageSize × OVERSAMPLING_FACTOR documents (sorted by _id)
             temp_results = self._get_sorted_results_with_next_limit_on_objects(
@@ -168,51 +162,54 @@ class MongoDBNextGenFilter(MongoDBFilter):
             # 3. Bulk query cache for latest/earliest versions
             query_conditions = []
             for obj in temp_results:
-                query = {
-                    "id": obj["id"],
-                    "last_spec": obj["_manifest"]["media_type"],
-                }
-
-                if "last" in match_version:
-                    query["latest_version"] = obj["_manifest"]["version"]
-
-                if "first" in match_version:
-                    query["earliest_version"] = obj["_manifest"]["version"]
-
+                query = {"id": obj["id"]}
                 query_conditions.append(query)
 
             matching_docs = self.api_root_db.objects_version_cache.find({"$or": query_conditions})
 
             matching_tuples = set()
-            for doc in matching_docs:
-                t = [doc["id"], doc["last_spec"], ]
-                if "latest_version" in match_version:
-                    t.append(doc["latest_version"])
-                if "first" in match_version:
-                    t.append(doc["earliest_version"])
+            if suffix == "_2_0_2_1":
+                for doc in matching_docs:
+                    if "latest_version" in match_version:
+                        matching_tuples.update(
+                            (doc["id"], doc[f"latest_version{suffix.replace('_2_0', '')}"],),
+                            (doc["id"], doc[f"latest_version{suffix.replace('_2_1', '')}"],),
+                        )
+                    if "first" in match_version:
+                        matching_tuples.update(
+                            (doc["id"], doc[f"earliest_version{suffix.replace('_2_0', '')}"],),
+                            (doc["id"], doc[f"earliest_version{suffix.replace('_2_1', '')}"],),
+                        )
+            elif suffix in ("_2_0", "_2_1"):
+                for doc in matching_docs:
+                    t = [doc["id"], doc["last_spec"], ]
+                    if "latest_version" in match_version:
+                        t.append(doc[f"latest_version{suffix}"])
+                    if "first" in match_version:
+                        t.append(doc[f"earliest_version{suffix}"])
 
-                matching_tuples.add(tuple(t))
+                    matching_tuples.add(tuple(t))
 
-                # 4. Filter: keep only docs where doc._version == cache.latest_version or earliest_version
+            else:
+                for doc in matching_docs:
+                    if "last" in match_version:
+                        matching_tuples.add((doc["id"], doc.get(f"latest_version_2_1") or doc.get(f"latest_version_2_0"),))
+                    if "first" in match_version:
+                        matching_tuples.add((doc["id"], doc.get(f"earliest_version_2_1") or doc.get(f"earliest_version_2_0"),))
+
+            # 4. Filter: keep only docs where doc._version == cache.latest_version or earliest_version
             results.extend(
                 [
                     temp_result for temp_result in temp_results
-                    if self._create_comparison_tuple(temp_result, match_version) in matching_tuples
+                    if (temp_result["id"], temp_result["_manifest"]["version"]) in matching_tuples
                 ]
             )
 
             # 5. Update cursor to last _id seen
             self.next = str(temp_results[-1]["_id"])
 
-        results = sorted(results, key=lambda x: x["_manifest"]["date"])
+        results = sorted(results, key=lambda x: x["_manifest"]["date_added"])
         return results[:self.limit], results[self.limit]["_id"] if len(results) > self.limit else None
-
-    def _create_comparison_tuple(self, obj: dict, match_version: str) -> tuple:
-        """Create a tuple for comparison based on the filter specified in match_version."""
-        t = [obj["id"], obj["_manifest"]["media_type"], ]
-        if "last" in match_version or "latest_version" in match_version:
-            t.append(obj["_manifest"]["version"])
-        return tuple(t)
 
     def _are_cache_objects_are_finished(self, temp_results: list[dict]) -> bool:
         return len(temp_results) == 1 and temp_results[0]["_id"] == ObjectId(self.next)
