@@ -6,6 +6,7 @@ import uuid
 import environ
 from pymongo import ASCENDING, IndexModel, MongoClient
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
+from pymongo.synchronous.collection import Collection
 from six import string_types
 
 # from ..config import get_application_instance_config_values
@@ -395,35 +396,7 @@ class MongoBackend(Backend):
                     new_obj.update({"_manifest": _manifest})
                     objects_info.insert_one(new_obj)
 
-                    if "2.0" in media_type:
-                        target_latest_field = "latest_version_2_0"
-                        target_earliest_field = "earliest_version_2_0"
-                    else:
-                        target_latest_field = "latest_version_2_1"
-                        target_earliest_field = "earliest_version_2_1"
-
-                    # upsert the latest version in the cache
-                    objects_cache_info.update_one(
-                        filter={"id": new_obj["id"], "collection_id": collection_id},
-                        update={"$max": {target_latest_field: float(obj_version_float)}},
-                        upsert=True
-                    )
-
-                    # upsert the first version in the cache
-                    objects_cache_info.update_one(
-                        filter={"id": new_obj["id"], "collection_id": collection_id},
-                        update={"$min": {target_earliest_field: float(obj_version_float)}},
-                        upsert=True
-                    )
-
-                    # upsert the last version if specs
-                    objects_cache_info.update_one(
-                        filter={"id": new_obj["id"], "collection_id": collection_id},
-                        update={"$max": {"last_spec": new_obj["_manifest"]["media_type"]}},
-                        upsert=True
-                    )
-
-                    self._update_manifest(api_root, collection_id, media_type)
+                    self.add_object_in_cache(objects_cache_info, new_obj, obj_version_float)
 
                 # else: we already have the object, so this is a
                 # no-op.
@@ -593,33 +566,7 @@ class MongoBackend(Backend):
                         obj["modified"] = datetime_to_float(string_to_datetime(obj["modified"]))
                     api_db["objects"].insert_one(obj)
 
-                    if "2.0" in obj["_manifest"]["media_type"]:
-                        target_latest_field = "latest_version_2_0"
-                        target_earliest_field = "earliest_version_2_0"
-                    else:
-                        target_latest_field = "latest_version_2_1"
-                        target_earliest_field = "earliest_version_2_1"
-
-                    # upsert the latest version in the cache
-                    api_db["objects_version_cache"].update_one(
-                        filter={"id": obj["id"], "collection_id": collection_id},
-                        update={"$max": {target_latest_field: float(obj_version_float)}},
-                        upsert=True
-                    )
-
-                    # upsert the first version in the cache
-                    api_db["objects_version_cache"].update_one(
-                        filter={"id": obj["id"], "collection_id": collection_id},
-                        update={"$min": {target_earliest_field: float(obj_version_float)}},
-                        upsert=True
-                    )
-
-                    # upsert the last version if specs
-                    api_db["objects_version_cache"].update_one(
-                        filter={"id": obj["id"], "collection_id": collection_id},
-                        update={"$max": {"last_spec": obj["_manifest"]["media_type"]}},
-                        upsert=True
-                    )
+                    self.add_object_in_cache(api_db["objects_version_cache"], obj, obj_version_float)
 
                 id_index = IndexModel([("id", ASCENDING)])
                 type_index = IndexModel([("type", ASCENDING)])
@@ -633,6 +580,36 @@ class MongoBackend(Backend):
                     [id_index, type_index, date_index, version_index, collection_index, date_and_spec_index,
                      version_and_spec_index, collection_and_date_index]
                 )
+
+    @staticmethod
+    def add_object_in_cache(object_cache_coll: Collection, obj: dict, obj_version_float: float):
+        if "2.0" in obj["_manifest"]["media_type"]:
+            target_latest_field = "latest_version_2_0"
+            target_earliest_field = "earliest_version_2_0"
+        else:
+            target_latest_field = "latest_version_2_1"
+            target_earliest_field = "earliest_version_2_1"
+
+        # upsert the latest version in the cache
+        object_cache_coll.update_one(
+            filter={"id": obj["id"], "collection_id": obj["_collection_id"]},
+            update={"$max": {target_latest_field: float(obj_version_float)}},
+            upsert=True
+        )
+
+        # upsert the first version in the cache
+        object_cache_coll.update_one(
+            filter={"id": obj["id"], "collection_id": obj["_collection_id"]},
+            update={"$min": {target_earliest_field: float(obj_version_float)}},
+            upsert=True
+        )
+
+        # upsert the last version if specs
+        object_cache_coll.update_one(
+            filter={"id": obj["id"], "collection_id": obj["_collection_id"]},
+            update={"$max": {"last_spec": obj["_manifest"]["media_type"]}},
+            upsert=True
+        )
 
     def clear_db(self):
         if "discovery_database" in self.client.list_database_names():
