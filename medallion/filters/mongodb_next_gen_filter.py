@@ -72,65 +72,15 @@ class MongoDBNextGenFilter(MongoDBFilter):
 
     def _get_last_objects_next(self, pipeline: dict) -> tuple[list[dict], str | None]:
         """Get only the last versions of each object."""
-        return self._get_oversampled_objects_next(pipeline, "latest_version")
+        return self._get_combined_objects_next(pipeline)
 
     def _get_first_objects_next(self, pipeline: dict) -> tuple[list[dict], str | None]:
         """Get only the first versions of each object."""
-        return self._get_oversampled_objects_next(pipeline, "earliest_version")
-
-    def _get_oversampled_objects_next(self, pipeline: dict, cache_field: str) -> tuple[list[dict], str | None]:
-        """Oversampling searches, which uses the cache to retrieve the correct results.
-
-        It is used when filtering for last or first version only.
-        """
-        results = []
-
-        cache_field += self._get_suffix_by_match_filters()
-
-        while len(results) < self.limit + 1:
-            # 1. Fetch batch: pageSize × OVERSAMPLING_FACTOR documents (sorted by _id)
-            temp_results = self._get_sorted_results_with_next_limit_on_objects(
-                pipeline,
-                self.limit * self.oversampling_factor,
-            )
-
-            if self._are_cache_objects_are_finished(temp_results):
-                break
-
-            # 3. Bulk query cache for latest/earliest versions
-            query_conditions = [{"id": obj["id"]} for obj in temp_results]
-            matching_docs = self.api_root_db.objects_version_cache.find({"$or": query_conditions})
-
-            # 4. Filter: keep only docs where doc._version == cache.latest_version
-            # The filter takes in consideration the media type searched.
-            # If both are specified, it takes both for the matching filter.
-            # If none is specified instead, it takes the most recent (2.1 and eventually 2.0)
-            if cache_field.endswith("_2_0_2_1"):
-                matching_tuples = {(doc["id"], doc[cache_field.replace("_2_0", "")]) for doc in matching_docs}
-                matching_tuples.update({(doc["id"], doc[cache_field.replace("_2_1", "")]) for doc in matching_docs})
-            elif cache_field.endswith("_2_0") or cache_field.endswith("_2_1"):
-                matching_tuples = {(doc["id"], doc[cache_field]) for doc in matching_docs}
-            else:
-                matching_tuples = {
-                    (doc["id"], doc.get(f"{cache_field}_2_1") or doc.get(f"{cache_field}_2_0")) for doc in matching_docs
-                }
-
-            results.extend(
-                [
-                    temp_result for temp_result in temp_results
-                    if (temp_result["id"], temp_result["_manifest"]["version"]) in matching_tuples
-                ]
-            )
-
-            # 5. Update cursor to last _id seen
-            self.next = str(temp_results[-1]["_id"])
-
-        results = sorted(results, key=lambda x: x["_manifest"]["date_added"])
-        return results[:self.limit], results[self.limit]["_id"] if len(results) > self.limit else None
+        return self._get_combined_objects_next(pipeline)
 
     def _get_combined_objects_next(self, pipeline: dict) -> tuple[list[dict], str | None]:
         """Oversampling searches with multiple filters."""
-        match_version = self.filter_args.get("match[version]")
+        match_version = self.filter_args.get("match[version]", "last")
         version_dates = [
             datetime_to_float(string_to_datetime(x))
             for x in match_version.split(",") if (x != "first" and x != "last")
@@ -158,21 +108,17 @@ class MongoDBNextGenFilter(MongoDBFilter):
                 query = {"id": obj["id"]}
                 query_conditions.append(query)
 
+            # 4. Filter: keep only docs where doc._version == cache.latest_version
+            # The filter takes in consideration the media type searched.
+            # If none or both is specified instead, it takes the most recent (2.1 and eventually 2.0)
             matching_docs = self.api_root_db.objects_version_cache.find({"$or": query_conditions})
-
             matching_tuples = set()
-            if suffix == "_2_0_2_1":
+            if not suffix or suffix == "_2_0_2_1":
                 for doc in matching_docs:
                     if "last" in match_version:
-                        matching_tuples.update(
-                            (doc["id"], doc[f"latest_version{suffix.replace('_2_0', '')}"],),
-                            (doc["id"], doc[f"latest_version{suffix.replace('_2_1', '')}"],),
-                        )
+                        matching_tuples.add((doc["id"], doc.get("latest_version_2_1") or doc.get("latest_version_2_0"),))
                     if "first" in match_version:
-                        matching_tuples.update(
-                            (doc["id"], doc[f"earliest_version{suffix.replace('_2_0', '')}"],),
-                            (doc["id"], doc[f"earliest_version{suffix.replace('_2_1', '')}"],),
-                        )
+                        matching_tuples.add((doc["id"], doc.get("earliest_version_2_1") or doc.get("earliest_version_2_0"),))
             elif suffix in ("_2_0", "_2_1"):
                 for doc in matching_docs:
                     t = [doc["id"]]
@@ -182,13 +128,6 @@ class MongoDBNextGenFilter(MongoDBFilter):
                         t.append(doc[f"earliest_version{suffix}"])
 
                     matching_tuples.add(tuple(t))
-
-            else:
-                for doc in matching_docs:
-                    if "last" in match_version:
-                        matching_tuples.add((doc["id"], doc.get("latest_version_2_1") or doc.get("latest_version_2_0"),))
-                    if "first" in match_version:
-                        matching_tuples.add((doc["id"], doc.get("earliest_version_2_1") or doc.get("earliest_version_2_0"),))
 
             # 4. Filter: keep only docs where doc._version == cache.latest_version or earliest_version
             results.extend(
