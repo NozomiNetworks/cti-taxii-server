@@ -81,13 +81,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
     def _get_oversampled_objects_next(self, pipeline: dict, cache_field: str) -> tuple[list[dict], str | None]:
         results = []
 
-        if '_manifest.media_type' in self.full_query:
-            if "$in" in self.full_query['_manifest.media_type']:
-                cache_field += "_2_0_2_1"
-            elif self.full_query['_manifest.media_type']['$eq'] == 'application/stix+json;version=2.0':
-                cache_field += "_2_0"
-            else:
-                cache_field += "_2_1"
+        cache_field += self._get_suffix_by_match_filters()
 
         while len(results) < self.limit + 1:
             # 1. Fetch batch: pageSize × OVERSAMPLING_FACTOR documents (sorted by _id)
@@ -101,9 +95,12 @@ class MongoDBNextGenFilter(MongoDBFilter):
 
             # 3. Bulk query cache for latest/earliest versions
             query_conditions = [{"id": obj["id"]} for obj in temp_results]
-
             matching_docs = self.api_root_db.objects_version_cache.find({"$or": query_conditions})
 
+            # 4. Filter: keep only docs where doc._version == cache.latest_version
+            # The filter take in consideration the media type searched.
+            # If both are specified, it takes both for the matching filter.
+            # If none is specified instead, it takes the most recent (2.1 and eventually 2.0)
             if cache_field.endswith("_2_0_2_1"):
                 matching_tuples = {(doc["id"], doc[cache_field.replace("_2_0", "")]) for doc in matching_docs}
                 matching_tuples.update({(doc["id"], doc[cache_field.replace("_2_1", "")]) for doc in matching_docs})
@@ -114,14 +111,13 @@ class MongoDBNextGenFilter(MongoDBFilter):
                     (doc["id"], doc.get(f"{cache_field}_2_1") or doc.get(f"{cache_field}_2_0")) for doc in matching_docs
                 }
 
-            # 4. Filter: keep only docs where doc._version == cache.latest_version
-
             results.extend(
                 [
                     temp_result for temp_result in temp_results
                     if (temp_result["id"], temp_result["_manifest"]["version"]) in matching_tuples
                 ]
             )
+
             # 5. Update cursor to last _id seen
             self.next = str(temp_results[-1]["_id"])
 
@@ -139,15 +135,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
             pipeline.update({"versions": {"$in": version_dates}})
 
         results = []
-
-        suffix = ""
-        if '_manifest.media_type' in self.full_query:
-            if "$in" in self.full_query['_manifest.media_type']:
-                suffix = "_2_0_2_1"
-            elif self.full_query['_manifest.media_type']['$eq'] == 'application/stix+json;version=2.0':
-                suffix = "_2_0"
-            else:
-                suffix = "_2_1"
+        suffix = self._get_suffix_by_match_filters()
 
         while len(results) < self.limit + 1:
             # 1. Fetch batch: pageSize × OVERSAMPLING_FACTOR documents (sorted by _id)
@@ -210,6 +198,22 @@ class MongoDBNextGenFilter(MongoDBFilter):
 
         results = sorted(results, key=lambda x: x["_manifest"]["date_added"])
         return results[:self.limit], results[self.limit]["_id"] if len(results) > self.limit else None
+
+    def _get_suffix_by_match_filters(self) -> str:
+        """Given the media_type filters, returns the suffix for the correct field in cache.
+
+        If the media_type are 2.0 and 2.1, then the query is an $in statement.
+        Otherwise, it is an $eq statement.
+        """
+        suffix = ""
+        if '_manifest.media_type' in self.full_query:
+            if "$in" in self.full_query['_manifest.media_type']:
+                suffix = "_2_0_2_1"
+            elif self.full_query['_manifest.media_type']['$eq'] == 'application/stix+json;version=2.0':
+                suffix = "_2_0"
+            else:
+                suffix = "_2_1"
+        return suffix
 
     def _are_cache_objects_are_finished(self, temp_results: list[dict]) -> bool:
         return len(temp_results) == 1 and temp_results[0]["_id"] == ObjectId(self.next)
