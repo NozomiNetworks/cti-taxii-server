@@ -21,8 +21,8 @@ from ..exceptions import (
     InitializationError, MongoBackendError, ProcessingError
 )
 from ..filters.mongodb_filter import MongoDBFilter
-from .base import Backend
 from ..filters.mongodb_next_gen_filter import MongoDBNextGenFilter
+from .base import Backend
 
 # Module-level logger
 log = logging.getLogger(__name__)
@@ -402,21 +402,21 @@ class MongoBackend(Backend):
                         target_latest_field = "latest_version_2_1"
                         target_earliest_field = "earliest_version_2_1"
 
-                    ## upsert the latest version in the cache
+                    # upsert the latest version in the cache
                     objects_cache_info.update_one(
                         filter={"id": new_obj["id"], "collection_id": collection_id},
                         update={"$max": {target_latest_field: float(obj_version_float)}},
                         upsert=True
                     )
 
-                    ## upsert the first version in the cache
+                    # upsert the first version in the cache
                     objects_cache_info.update_one(
                         filter={"id": new_obj["id"], "collection_id": collection_id},
                         update={"$min": {target_earliest_field: float(obj_version_float)}},
                         upsert=True
                     )
 
-                    ## upsert the last version if specs
+                    # upsert the last version if specs
                     objects_cache_info.update_one(
                         filter={"id": new_obj["id"], "collection_id": collection_id},
                         update={"$max": {"last_spec": new_obj["_manifest"]["media_type"]}},
@@ -600,21 +600,21 @@ class MongoBackend(Backend):
                         target_latest_field = "latest_version_2_1"
                         target_earliest_field = "earliest_version_2_1"
 
-                    ## upsert the latest version in the cache
+                    # upsert the latest version in the cache
                     api_db["objects_version_cache"].update_one(
                         filter={"id": obj["id"], "collection_id": collection_id},
                         update={"$max": {target_latest_field: float(obj_version_float)}},
                         upsert=True
                     )
 
-                    ## upsert the first version in the cache
+                    # upsert the first version in the cache
                     api_db["objects_version_cache"].update_one(
                         filter={"id": obj["id"], "collection_id": collection_id},
                         update={"$min": {target_earliest_field: float(obj_version_float)}},
                         upsert=True
                     )
 
-                    ## upsert the last version if specs
+                    # upsert the last version if specs
                     api_db["objects_version_cache"].update_one(
                         filter={"id": obj["id"], "collection_id": collection_id},
                         update={"$max": {"last_spec": obj["_manifest"]["media_type"]}},

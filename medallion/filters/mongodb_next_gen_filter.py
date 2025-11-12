@@ -1,8 +1,8 @@
 from bson import ObjectId
 from pymongo.synchronous.database import Database
 
+from ..common import datetime_to_float, string_to_datetime
 from .mongodb_filter import MongoDBFilter
-from ..common import string_to_datetime, datetime_to_float
 
 
 class MongoDBNextGenFilter(MongoDBFilter):
@@ -126,13 +126,11 @@ class MongoDBNextGenFilter(MongoDBFilter):
             else:
                 matching_tuples = {(doc["id"], doc[cache_field]) for doc in matching_docs}
 
-
             # 4. Filter: keep only docs where doc._version == cache.latest_version
             results.extend(
                 [
                     temp_result for temp_result in temp_results
-                    if (temp_result["id"], temp_result["_manifest"]["version"])
-                       in matching_tuples
+                    if (temp_result["id"], temp_result["_manifest"]["version"]) in matching_tuples
                 ]
             )
 
@@ -208,9 +206,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
 
     def _create_comparison_tuple(self, obj: dict, match_version: str) -> tuple:
         t = [obj["id"], obj["_manifest"]["media_type"], ]
-        if "last" in match_version:
-            t.append(obj["_manifest"]["version"])
-        if "first" in match_version:
+        if "last" in match_version or "latest_version" in match_version:
             t.append(obj["_manifest"]["version"])
         return tuple(t)
 
