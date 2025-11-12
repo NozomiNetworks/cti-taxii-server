@@ -163,7 +163,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
             matching_tuples = set()
             if suffix == "_2_0_2_1":
                 for doc in matching_docs:
-                    if "latest_version" in match_version:
+                    if "last" in match_version:
                         matching_tuples.update(
                             (doc["id"], doc[f"latest_version{suffix.replace('_2_0', '')}"],),
                             (doc["id"], doc[f"latest_version{suffix.replace('_2_1', '')}"],),
@@ -175,8 +175,8 @@ class MongoDBNextGenFilter(MongoDBFilter):
                         )
             elif suffix in ("_2_0", "_2_1"):
                 for doc in matching_docs:
-                    t = [doc["id"], doc["last_spec"], ]
-                    if "latest_version" in match_version:
+                    t = [doc["id"]]
+                    if "last" in match_version:
                         t.append(doc[f"latest_version{suffix}"])
                     if "first" in match_version:
                         t.append(doc[f"earliest_version{suffix}"])
