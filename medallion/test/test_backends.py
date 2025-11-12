@@ -403,12 +403,12 @@ def test_objects_version_match_last(backend):
     for obj in objs["objects"]:
         if obj["id"] == "indicator--6770298f-0fd8-471a-ab8c-1c658a46574e":
             assert obj["modified"] == "2017-01-27T13:49:53.935Z"
+            # Because the spec_version default filter comes before the version filter, the 2.0 version gets filtered out automatically
+            # If you put a spec_version=2.0,2.1 here, then the correct version would be here
+            # if obj["id"] == "malware--c0931cc6-c75e-47e5-9036-78fabc95d4ec":
+            #    assert obj["modified"] == "2018-02-23T18:30:00.000Z"
 
     assert len(objs['objects']) == 5
-        # Because the spec_version default filter comes before the version filter, the 2.0 version gets filtered out automatically
-        # If you put a spec_version=2.0,2.1 here, then the correct version would be here
-        # if obj["id"] == "malware--c0931cc6-c75e-47e5-9036-78fabc95d4ec":
-        #    assert obj["modified"] == "2018-02-23T18:30:00.000Z"
 
 
 def test_objects_version_match_last_2_1(backend):

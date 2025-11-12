@@ -186,9 +186,9 @@ class MongoDBNextGenFilter(MongoDBFilter):
             else:
                 for doc in matching_docs:
                     if "last" in match_version:
-                        matching_tuples.add((doc["id"], doc.get(f"latest_version_2_1") or doc.get(f"latest_version_2_0"),))
+                        matching_tuples.add((doc["id"], doc.get("latest_version_2_1") or doc.get("latest_version_2_0"),))
                     if "first" in match_version:
-                        matching_tuples.add((doc["id"], doc.get(f"earliest_version_2_1") or doc.get(f"earliest_version_2_0"),))
+                        matching_tuples.add((doc["id"], doc.get("earliest_version_2_1") or doc.get("earliest_version_2_0"),))
 
             # 4. Filter: keep only docs where doc._version == cache.latest_version or earliest_version
             results.extend(
