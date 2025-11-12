@@ -395,17 +395,24 @@ class MongoBackend(Backend):
                     new_obj.update({"_manifest": _manifest})
                     objects_info.insert_one(new_obj)
 
+                    if "2.0" in media_type:
+                        target_latest_field = "latest_version_2_0"
+                        target_earliest_field = "earliest_version_2_0"
+                    else:
+                        target_latest_field = "latest_version_2_1"
+                        target_earliest_field = "earliest_version_2_1"
+
                     ## upsert the latest version in the cache
                     objects_cache_info.update_one(
                         filter={"id": new_obj["id"], "collection_id": collection_id},
-                        update={"$max": {"latest_version": obj_version_float}},
+                        update={"$max": {target_latest_field: float(obj_version_float)}},
                         upsert=True
                     )
 
                     ## upsert the first version in the cache
                     objects_cache_info.update_one(
                         filter={"id": new_obj["id"], "collection_id": collection_id},
-                        update={"$min": {"earliest_version": obj_version_float}},
+                        update={"$min": {target_earliest_field: float(obj_version_float)}},
                         upsert=True
                     )
 
@@ -586,17 +593,24 @@ class MongoBackend(Backend):
                         obj["modified"] = datetime_to_float(string_to_datetime(obj["modified"]))
                     api_db["objects"].insert_one(obj)
 
+                    if "2.0" in obj["_manifest"]["media_type"]:
+                        target_latest_field = "latest_version_2_0"
+                        target_earliest_field = "earliest_version_2_0"
+                    else:
+                        target_latest_field = "latest_version_2_1"
+                        target_earliest_field = "earliest_version_2_1"
+
                     ## upsert the latest version in the cache
                     api_db["objects_version_cache"].update_one(
                         filter={"id": obj["id"], "collection_id": collection_id},
-                        update={"$max": {"latest_version": obj_version_float}},
+                        update={"$max": {target_latest_field: float(obj_version_float)}},
                         upsert=True
                     )
 
                     ## upsert the first version in the cache
                     api_db["objects_version_cache"].update_one(
                         filter={"id": obj["id"], "collection_id": collection_id},
-                        update={"$min": {"earliest_version": obj_version_float}},
+                        update={"$min": {target_earliest_field: float(obj_version_float)}},
                         upsert=True
                     )
 

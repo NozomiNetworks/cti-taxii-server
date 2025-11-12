@@ -78,6 +78,15 @@ class MongoDBNextGenFilter(MongoDBFilter):
     def _get_oversampled_objects_next(self, pipeline: dict, cache_field: str) -> tuple[list[dict], str | None]:
         results = []
 
+        if '_manifest.media_type' not in self.full_query:
+            cache_field += "_2_1"
+        elif "$in" in self.full_query['_manifest.media_type']:
+            cache_field += "_2_0_2_1"
+        elif self.full_query['_manifest.media_type']['$eq'] == 'application/stix+json;version=2.0':
+            cache_field += "_2_0"
+        else:
+            cache_field += "_2_1"
+
         while len(results) < self.limit + 1:
             # 1. Fetch batch: pageSize × OVERSAMPLING_FACTOR documents (sorted by _id)
             temp_results = self._get_sorted_results_with_next_limit_on_objects(
@@ -89,24 +98,41 @@ class MongoDBNextGenFilter(MongoDBFilter):
                 break
 
             # 3. Bulk query cache for latest/earliest versions
-            query_conditions = [
-                {
-                    "id": obj["id"],
-                    cache_field: obj["_manifest"]["version"],
-                    "last_spec": obj["_manifest"]["media_type"]
-                }
-                for obj in temp_results
-            ]
+            if cache_field.endswith("_2_0_2_1"):
+                query_conditions = [
+                    {
+                        "id": obj["id"],
+                        "$or": [
+                            {cache_field.replace("_2_1", ""): obj["_manifest"]["version"]},
+                            {cache_field.replace("_2_0", ""): obj["_manifest"]["version"]},
+                        ],
+                    }
+                    for obj in temp_results
+                ]
+            else:
+                query_conditions = [
+                    {
+                        "id": obj["id"],
+                        cache_field: obj["_manifest"]["version"],
+                    }
+                    for obj in temp_results
+                ]
 
             matching_docs = self.api_root_db.objects_version_cache.find({"$or": query_conditions})
-            matching_tuples = {(doc["id"], doc["last_spec"], doc[cache_field]) for doc in matching_docs}
+
+            if cache_field.endswith("_2_0_2_1"):
+                matching_tuples = {(doc["id"], doc[cache_field.replace("_2_0", "")]) for doc in matching_docs}
+                matching_tuples.update({(doc["id"], doc[cache_field.replace("_2_1", "")]) for doc in matching_docs})
+            else:
+                matching_tuples = {(doc["id"], doc[cache_field]) for doc in matching_docs}
+
 
             # 4. Filter: keep only docs where doc._version == cache.latest_version
             results.extend(
                 [
                     temp_result for temp_result in temp_results
-                    if (temp_result["id"], temp_result["_manifest"]["media_type"],
-                        temp_result["_manifest"]["version"]) in matching_tuples
+                    if (temp_result["id"], temp_result["_manifest"]["version"])
+                       in matching_tuples
                 ]
             )
 
