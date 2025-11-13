@@ -1,8 +1,8 @@
+from copy import deepcopy
 import io
 import json
 import logging
 import uuid
-from copy import deepcopy
 
 import environ
 from pymongo import ASCENDING, IndexModel, MongoClient
@@ -10,7 +10,6 @@ from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 from pymongo.synchronous.collection import Collection
 from six import string_types
 
-from .base import Backend
 from ..common import (
     APPLICATION_INSTANCE, create_resource, datetime_to_float,
     datetime_to_string, datetime_to_string_stix, determine_spec_version,
@@ -23,6 +22,7 @@ from ..exceptions import (
 )
 from ..filters.mongodb_filter import MongoDBFilter
 from ..filters.mongodb_next_gen_filter import MongoDBNextGenFilter
+from .base import Backend
 
 # Module-level logger
 log = logging.getLogger(__name__)
