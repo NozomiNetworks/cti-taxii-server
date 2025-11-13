@@ -20,7 +20,6 @@ from ..common import (
 from ..exceptions import (
     InitializationError, MongoBackendError, ProcessingError
 )
-from ..filters.mongodb_filter import MongoDBFilter
 from ..filters.mongodb_next_gen_filter import MongoDBNextGenFilter
 from .base import Backend
 
