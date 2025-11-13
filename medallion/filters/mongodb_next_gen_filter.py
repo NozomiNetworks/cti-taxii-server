@@ -39,13 +39,18 @@ class MongoDBNextGenFilter(MongoDBFilter):
         else:
             results = self._get_specific_version_objects_next(pipeline, match_version)
 
-        # Sort the results, which may be out of order due to sorting by _id
-        results.sort(key=lambda x: x["_manifest"]["date_added"])
+        self._clean_results(results)
 
         if len(results) > self.limit:
             return results[:-1], str(results[-1]["_id"])
 
         return results, None
+
+    @staticmethod
+    def _clean_results(results: list[dict]):
+        for res in results:
+            del res["_id"]
+            del res["_manifest"]
 
     def _get_match_version_from_filter(self, allowed) -> str | None:
         if "version" not in allowed:
@@ -98,14 +103,11 @@ class MongoDBNextGenFilter(MongoDBFilter):
                 self.limit * self.oversampling_factor,
             )
 
-            if self._are_cache_objects_are_finished(temp_results):
+            if self._are_cache_objects_finished(temp_results):
                 break
 
             # 3. Bulk query cache for latest/earliest versions
-            query_conditions = []
-            for obj in temp_results:
-                query = {"id": obj["id"]}
-                query_conditions.append(query)
+            query_conditions = [{"id": obj["id"]} for obj in temp_results]
 
             # 4. Filter: keep only docs where doc._version == cache.latest_version
             matching_docs = self.api_root_db.objects_version_cache.find({"$or": query_conditions})
@@ -149,7 +151,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
             )
 
             # 5. Update cursor to last _id seen
-            self.next = str(temp_results[-1]["_id"])
+            self.next = str(max(r["_id"] for r in temp_results))
 
         results = sorted(results, key=lambda x: x["_manifest"]["date_added"])
         return results
@@ -170,7 +172,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
                 suffix = "_2_1"
         return suffix
 
-    def _are_cache_objects_are_finished(self, temp_results: list[dict]) -> bool:
+    def _are_cache_objects_finished(self, temp_results: list[dict]) -> bool:
         return len(temp_results) == 0 or (len(temp_results) == 1 and temp_results[0]["_id"] == ObjectId(self.next))
 
     def _get_sorted_results_with_next_limit_on_objects(self, pipeline: dict, limit: int) -> list[dict]:
@@ -179,7 +181,13 @@ class MongoDBNextGenFilter(MongoDBFilter):
         This is the basic method to retrieve the results from the objects collection.
         """
         self._append_next_if_exists(pipeline)
-        results = list(self.api_root_db.objects.find(pipeline).sort({"_id": 1}).limit(limit))
+        results = list(
+            self.api_root_db.objects.find(
+                pipeline,
+                sort=[('_manifest.date_added', 1)],
+                projection={"_collection_id": 0}
+            ).limit(limit)
+        )
         return results
 
     def _append_next_if_exists(self, pipeline: dict):

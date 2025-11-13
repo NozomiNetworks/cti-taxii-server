@@ -340,15 +340,7 @@ class MongoBackend(Backend):
         manifest_resource = self._get_object_manifest(api_root, collection_id, filter_args, ("id", "type", "version", "spec_version"), limit)
         headers = get_custom_headers(manifest_resource)
 
-        self._clean_results(objects_found)
         return create_resource("objects", objects_found, more, next_id), headers
-
-    @staticmethod
-    def _clean_results(results: list[dict]):
-        for res in results:
-            del res["_id"]
-            del res["_manifest"]
-            del res["_collection_id"]
 
     @catch_mongodb_error
     def _add_status(self, api_root_name, status):
@@ -450,7 +442,6 @@ class MongoBackend(Backend):
         manifest_resource = self._get_object_manifest(api_root, collection_id, filter_args, ("id", "type", "version", "spec_version"), limit)
         headers = get_custom_headers(manifest_resource)
 
-        self._clean_results(objects_found)
         return create_resource("objects", objects_found, more, next_id), headers
 
     @catch_mongodb_error
@@ -591,24 +582,13 @@ class MongoBackend(Backend):
             target_latest_field = "latest_version_2_1"
             target_earliest_field = "earliest_version_2_1"
 
-        # upsert the latest version in the cache
-        object_cache_coll.update_one(
-            filter={"id": obj["id"], "collection_id": obj["_collection_id"]},
-            update={"$max": {target_latest_field: float(obj_version_float)}},
-            upsert=True
-        )
-
         # upsert the first version in the cache
         object_cache_coll.update_one(
             filter={"id": obj["id"], "collection_id": obj["_collection_id"]},
-            update={"$min": {target_earliest_field: float(obj_version_float)}},
-            upsert=True
-        )
-
-        # upsert the last version if specs
-        object_cache_coll.update_one(
-            filter={"id": obj["id"], "collection_id": obj["_collection_id"]},
-            update={"$max": {"last_spec": obj["_manifest"]["media_type"]}},
+            update={
+                "$max": {target_latest_field: float(obj_version_float)},
+                "$min": {target_earliest_field: float(obj_version_float)}
+            },
             upsert=True
         )
 
