@@ -451,11 +451,9 @@ class MongoBackend(Backend):
                     {"_collection_id": collection_id, "id": object_id, "_manifest.version": obj_version}
                 )
 
-            # NEED TO UPDATE THE CACHE OBJECT
+            # Recreate the object cache with all the objects still present
             objects_cache_info.delete_one({"collection_id": collection_id, "id": object_id})
-            all_objects_found = api_root_db.objects.find({"_collection_id": collection_id, "id": object_id})
-
-            for obj in all_objects_found:
+            for obj in api_root_db.objects.find({"_collection_id": collection_id, "id": object_id}):
                 obj["_collection_id"] = collection_id
                 self.add_object_in_cache(objects_cache_info, obj, obj["_manifest"]["version"])
 
