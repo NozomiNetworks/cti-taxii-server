@@ -16,7 +16,19 @@ class MongoDBNextGenFilter(MongoDBFilter):
         self.limit = record["limit"]
         self.next = record.get("next")
 
+    def process_manifests_next_gen_filter(self, allowed: tuple[str]) -> tuple[list[dict], str | None]:
+        results, _next = self._process_objects_next_gen_filter_raw(allowed)
+
+        return [r["_manifest"] for r in results], _next
+
     def process_objects_next_gen_filter(self, allowed: tuple[str]) -> tuple[list[dict], str | None]:
+        results, _next = self._process_objects_next_gen_filter_raw(allowed)
+
+        self._remove_id(results)
+
+        return results, _next
+
+    def _process_objects_next_gen_filter_raw(self, allowed: tuple[str]) -> tuple[list[dict], str | None]:
         # Basic filter pipeline with id, type, added_after, spec_version
         # collection_id is part of the basic filter
         pipeline = self.full_query
@@ -40,17 +52,14 @@ class MongoDBNextGenFilter(MongoDBFilter):
             results = self._get_specific_version_objects_next(pipeline, match_version)
 
         if len(results) > self.limit:
-            return results[:-1], str(results[-1]["_id"])
-
-        self._clean_results(results)
+            return results[:self.limit], str(results[self.limit]["_id"])
 
         return results, None
 
     @staticmethod
-    def _clean_results(results: list[dict]):
+    def _remove_id(results: list[dict]):
         for res in results:
             del res["_id"]
-            del res["_manifest"]
 
     def _get_match_version_from_filter(self, allowed) -> str | None:
         if "version" not in allowed:
@@ -66,7 +75,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
 
     def _get_all_objects_next(self, pipeline: dict) -> list[dict]:
         """Get all versions of each object."""
-        return self._get_sorted_results_with_next_limit_on_objects(pipeline, self.limit + 1)
+        return self._get_combined_objects_next(pipeline)
 
     def _get_specific_version_objects_next(self, pipeline: dict, version: str) -> list[dict]:
         """Get only the specific version of each object."""
@@ -85,13 +94,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
     def _get_combined_objects_next(self, pipeline: dict) -> list[dict]:
         """Oversampling searches with multiple filters."""
         match_version = self.filter_args.get("match[version]", "last")
-        version_dates = [
-            datetime_to_float(string_to_datetime(x))
-            for x in match_version.split(",") if (x != "first" and x != "last")
-        ]
-
-        if version_dates:
-            pipeline.update({"versions": {"$in": version_dates}})
+        self._update_pipeline_with_version_dates(pipeline, match_version)
 
         results = []
         suffix = self._get_suffix_by_match_filters()
@@ -101,7 +104,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
             temp_results = self._get_sorted_results_with_next_limit_on_objects(
                 pipeline,
                 self.limit * self.oversampling_factor,
-            )
+                )
 
             if self._are_cache_objects_finished(temp_results):
                 break
@@ -110,37 +113,8 @@ class MongoDBNextGenFilter(MongoDBFilter):
             query_conditions = [{"id": obj["id"]} for obj in temp_results]
 
             # 4. Filter: keep only docs where doc._version == cache.latest_version
-            matching_docs = self.api_root_db.objects_version_cache.find({"$or": query_conditions})
-            matching_tuples = set()
-
-            # If both are specified, it takes the max/min value (2.1 and eventually 2.0)
-            if suffix == "_2_0_2_1":
-                for doc in matching_docs:
-                    if "last" in match_version:
-                        latest_version_2_1 = doc.get("latest_version_2_1", 0)
-                        latest_version_2_0 = doc.get("latest_version_2_0", 0)
-                        matching_tuples.add((doc["id"], max(latest_version_2_1, latest_version_2_0),))
-
-                    if "first" in match_version:
-                        earliest_version_2_1 = doc.get("earliest_version_2_1", float('inf'))
-                        earliest_version_2_0 = doc.get("earliest_version_2_0", float('inf'))
-                        matching_tuples.add((doc["id"], min(earliest_version_2_1, earliest_version_2_0),))
-            # The filter takes in consideration the media type searched.
-            elif suffix in ("_2_0", "_2_1"):
-                for doc in matching_docs:
-                    t = [doc["id"]]
-                    if "last" in match_version:
-                        t.append(doc[f"latest_version{suffix}"])
-                    if "first" in match_version:
-                        t.append(doc[f"earliest_version{suffix}"])
-                    matching_tuples.add(tuple(t))
-            # If None of them are specified, it takes whichever is available giving priority to 2.1.
-            else:
-                for doc in matching_docs:
-                    if "last" in match_version:
-                        matching_tuples.add((doc["id"], doc.get("latest_version_2_1") or doc.get("latest_version_2_0"),))
-                    if "first" in match_version:
-                        matching_tuples.add((doc["id"], doc.get("earliest_version_2_1") or doc.get("earliest_version_2_0"),))
+            matching_docs = list(self.api_root_db.objects_version_cache.find({"$or": query_conditions}))
+            matching_tuples = self._generate_matching_tuple(suffix, match_version, temp_results, matching_docs)
 
             # 4. Filter: keep only docs where doc._version == cache.latest_version or earliest_version
             results.extend(
@@ -156,21 +130,97 @@ class MongoDBNextGenFilter(MongoDBFilter):
         results = sorted(results, key=lambda x: x["_manifest"]["date_added"])
         return results
 
+    @staticmethod
+    def _update_pipeline_with_version_dates(pipeline: dict, match_version: str):
+        """Update the pipeline with version dates based on match_version.
+
+        If the match_version contains the "all" string, no version filtering is applied.
+        Otherwise, the pipeline is updated to include the specified version dates converted to float.
+        """
+        version_dates = [
+            datetime_to_float(string_to_datetime(x))
+            for x in match_version.split(",") if (x not in ("last", "first", "all",))
+        ] if "all" not in match_version else []
+
+        if version_dates:
+            pipeline.update({"versions": {"$in": version_dates}})
+
+    def _generate_matching_tuple(self, suffix: str, match_version: str, temp_results: list[dict], matching_docs: list[str]) -> set[tuple[str, str]]:
+        """Get the matching tuples based on the match_version."""
+        if "all" in match_version:
+            return self._get_matching_tuple_for_all_match_version(suffix, temp_results, matching_docs)
+        else:
+            return self._get_matching_tuple_with_generic_match_version(suffix, match_version, matching_docs)
+
+    @staticmethod
+    def _get_matching_tuple_for_all_match_version(suffix: str, temp_results: list[dict], matching_docs: list[str]) -> set[tuple[str, str]]:
+        """When the match version is 'all'
+
+        - Take all versions if both 2.0 or 2.1 are specified, due to the filter is previously applied.
+        - Take only the latest media_type if no spec is provided.
+        """
+        if suffix:
+            matching_tuples = [
+                (temp_result["id"], temp_result["_manifest"]["version"]) for temp_result in temp_results
+            ]
+        else:
+            matching_tuples = [
+                (temp_result["id"], temp_result["_manifest"]["version"])
+                for temp_result in temp_results
+                if temp_result["_manifest"]["media_type"] == next(obj for obj in matching_docs if obj["id"] == temp_result["id"])["last_spec"]
+            ]
+        return set(matching_tuples)
+
+    @staticmethod
+    def _get_matching_tuple_with_generic_match_version(suffix: str, match_version: str, matching_docs: list[str]) -> set[tuple[str, str]]:
+        matching_tuples = set()
+
+        # If both are specified, it takes the max/min value (2.1 and eventually 2.0)
+        if suffix == "_2_0_2_1":
+            for doc in matching_docs:
+                if "last" in match_version:
+                    latest_version_2_1 = doc.get("latest_version_2_1", 0)
+                    latest_version_2_0 = doc.get("latest_version_2_0", 0)
+                    matching_tuples.add((doc["id"], max(latest_version_2_1, latest_version_2_0),))
+
+                if "first" in match_version:
+                    earliest_version_2_1 = doc.get("earliest_version_2_1", float('inf'))
+                    earliest_version_2_0 = doc.get("earliest_version_2_0", float('inf'))
+                    matching_tuples.add((doc["id"], min(earliest_version_2_1, earliest_version_2_0),))
+        # The filter takes in consideration the media type searched.
+        elif suffix in ("_2_0", "_2_1"):
+            for doc in matching_docs:
+                t = [doc["id"]]
+                if "last" in match_version:
+                    t.append(doc[f"latest_version{suffix}"])
+                if "first" in match_version:
+                    t.append(doc[f"earliest_version{suffix}"])
+                matching_tuples.add(tuple(t))
+        # If None of them are specified, it takes whichever is available giving priority to 2.1.
+        else:
+            for doc in matching_docs:
+                if "last" in match_version:
+                    matching_tuples.add((doc["id"], doc.get("latest_version_2_1") or doc.get("latest_version_2_0"),))
+                if "first" in match_version:
+                    matching_tuples.add((doc["id"], doc.get("earliest_version_2_1") or doc.get("earliest_version_2_0"),))
+
+        return matching_tuples
+
     def _get_suffix_by_match_filters(self) -> str:
         """Given the media_type filters, returns the suffix for the correct field in cache.
 
         If the media_type are 2.0 and 2.1, then the query is an $in statement.
         Otherwise, it is an $eq statement.
         """
-        suffix = ""
-        if '_manifest.media_type' in self.full_query:
-            if "$in" in self.full_query['_manifest.media_type']:
-                suffix = "_2_0_2_1"
-            elif self.full_query['_manifest.media_type']['$eq'] == 'application/stix+json;version=2.0':
-                suffix = "_2_0"
-            else:
-                suffix = "_2_1"
-        return suffix
+        if '_manifest.media_type' not in self.full_query:
+            return ""
+
+        if "$in" in self.full_query['_manifest.media_type']:
+            return "_2_0_2_1"
+        elif self.full_query['_manifest.media_type']['$eq'] == 'application/stix+json;version=2.0':
+            return "_2_0"
+        else:
+            return "_2_1"
 
     def _are_cache_objects_finished(self, temp_results: list[dict]) -> bool:
         return len(temp_results) == 0 or (len(temp_results) == 1 and temp_results[0]["_id"] == ObjectId(self.next))
