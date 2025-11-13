@@ -39,10 +39,10 @@ class MongoDBNextGenFilter(MongoDBFilter):
         else:
             results = self._get_specific_version_objects_next(pipeline, match_version)
 
-        self._clean_results(results)
-
         if len(results) > self.limit:
             return results[:-1], str(results[-1]["_id"])
+
+        self._clean_results(results)
 
         return results, None
 
