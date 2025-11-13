@@ -1,3 +1,4 @@
+from copy import deepcopy
 import io
 import json
 import logging
@@ -82,24 +83,35 @@ class MongoBackend(Backend):
         """
         return "discovery_database" in self.client.list_database_names()
 
-    def _get_next_doc_id(self, pagination_collection: Collection, next_id: str | None) -> str | None:
+    def _get_next_doc_id(self, pagination_collection: Collection, next_id: str | None, args: dict) -> str | None:
+        """Get the pagination token given the current request's next field and filters.
+
+        If filters change and a next field is provided that does not match any stored pagination token,
+        it will raise a ProcessingError exception.
+        """
         if not next_id:
             return None
 
-        if doc := pagination_collection.find_one({"id": next_id}):
+        if doc := pagination_collection.find_one(args):
             return doc["last_doc_id"]
 
-        return None
+        raise ProcessingError("The server did not understand the request or filter parameters: 'next' not valid", 400)
 
-    def _create_next(self, pagination_collection: Collection, next_id: str | None) -> str | None:
+    def _create_next(self, pagination_collection: Collection, next_id: str | None, args: dict) -> str | None:
+        """Create a next pagination token for the current request, based on the actual filters.
+
+        The next field of the original request is changed with the new one.
+        """
         if not next_id:
             return None
 
         new_uuid = str(uuid.uuid4())
+        new_args = deepcopy(args)
+        new_args['next'] = new_uuid
         pagination_collection.insert_one(
             {
-                "id": new_uuid,
-                "last_doc_id": next_id
+                "last_doc_id": next_id,
+                **new_args
             }
         )
         return new_uuid
@@ -234,7 +246,7 @@ class MongoBackend(Backend):
     @catch_mongodb_error
     def get_object_manifest(self, api_root, collection_id, filter_args, allowed_filters, limit):
         api_root_db = self.client[api_root]
-        _next = self._get_next_doc_id(api_root_db["pagination"], filter_args.get("next"))
+        _next = self._get_next_doc_id(api_root_db["pagination"], filter_args.get("next"), filter_args)
         full_filter_next_gen = MongoDBNextGenFilter(
             filter_args,
             {"_collection_id": {"$eq": collection_id}},
@@ -247,7 +259,7 @@ class MongoBackend(Backend):
 
         next_id, more = _next, _next is not None
         manifests = [obj["_manifest"] for obj in results]
-        next_id = self._create_next(api_root_db["pagination"], next_id)
+        next_id = self._create_next(api_root_db["pagination"], next_id, filter_args)
 
         manifest_resource = self._get_object_manifest(manifests, more, next_id)
         headers = get_custom_headers(manifest_resource)
@@ -282,7 +294,7 @@ class MongoBackend(Backend):
     @catch_mongodb_error
     def get_objects(self, api_root, collection_id, filter_args, allowed_filters, limit):
         api_root_db = self.client[api_root]
-        _next = self._get_next_doc_id(api_root_db["pagination"], filter_args.get("next"))
+        _next = self._get_next_doc_id(api_root_db["pagination"], filter_args.get("next"), filter_args)
 
         full_filter_next_gen = MongoDBNextGenFilter(
             filter_args,
@@ -303,7 +315,7 @@ class MongoBackend(Backend):
                 obj["created"] = datetime_to_string_stix(float_to_datetime(obj["created"]))
 
         next_id, more = _next, _next is not None
-        next_id = self._create_next(api_root_db["pagination"], next_id)
+        next_id = self._create_next(api_root_db["pagination"], next_id, filter_args)
 
         manifests = [obj["_manifest"] for obj in objects_found]
         manifest_resource = self._get_object_manifest(manifests, more, next_id)
@@ -387,7 +399,7 @@ class MongoBackend(Backend):
         filter_args["match[id]"] = object_id
 
         self._validate_object_id(objects_info, collection_id, object_id)
-        _next = self._get_next_doc_id(api_root_db["pagination"], filter_args.get("next"))
+        _next = self._get_next_doc_id(api_root_db["pagination"], filter_args.get("next"), filter_args)
 
         full_filter_next_gen = MongoDBNextGenFilter(
             filter_args,
@@ -408,7 +420,7 @@ class MongoBackend(Backend):
                 obj["created"] = datetime_to_string_stix(float_to_datetime(obj["created"]))
 
         next_id, more = _next, _next is not None
-        next_id = self._create_next(api_root_db["pagination"], next_id)
+        next_id = self._create_next(api_root_db["pagination"], next_id, filter_args)
         manifests = [obj["_manifest"] for obj in objects_found]
         manifest_resource = self._get_object_manifest(manifests, more, next_id)
         headers = get_custom_headers(manifest_resource)
@@ -451,7 +463,7 @@ class MongoBackend(Backend):
         filter_args["match[version]"] = "all"
 
         self._validate_object_id(objects_info, collection_id, object_id)
-        _next = self._get_next_doc_id(api_root_db["pagination"], filter_args.get("next"))
+        _next = self._get_next_doc_id(api_root_db["pagination"], filter_args.get("next"), filter_args)
 
         full_filter_next_gen = MongoDBNextGenFilter(
             filter_args,
@@ -465,7 +477,7 @@ class MongoBackend(Backend):
         versions = list(map(lambda x: datetime_to_string_stix(float_to_datetime(x["version"])), manifests_found))
 
         next_id, more = _next, _next is not None
-        next_id = self._create_next(api_root_db["pagination"], next_id)
+        next_id = self._create_next(api_root_db["pagination"], next_id, filter_args)
         manifest_resource = self._get_object_manifest(manifests_found, more, next_id)
         headers = get_custom_headers(manifest_resource)
 

@@ -500,7 +500,6 @@ def test_get_object_added_after_case2(backend):
     assert len(objs['objects']) == 1
 
 
-@pytest.mark.skip("Skipping for now, need to implement next stored on mongodb")
 def test_get_object_limit(backend):
     r = backend.client.get(
         test.GET_OBJECTS_EP + "indicator--6770298f-0fd8-471a-ab8c-1c658a46574e?limit=1",
@@ -636,7 +635,6 @@ def test_get_manifest_added_after(backend):
     assert len(objs['objects']) == 2
 
 
-@pytest.mark.skip("Skipping for now, need to implement next stored on mongodb")
 def test_get_manifest_limit(backend):
     r = backend.client.get(
         test.GET_MANIFESTS_EP + "?limit=2",
@@ -823,7 +821,6 @@ def test_get_version_added_after(backend):
     assert len(objs["versions"]) == 1
 
 
-@pytest.mark.skip("Skipping for now, need to implement next stored on mongodb")
 def test_get_version_limit(backend):
 
     r = backend.client.get(
@@ -1339,7 +1336,6 @@ def test_object_pagination_bad_limit_value_400(backend):
     assert r.status_code == 400
 
 
-@pytest.mark.skip("Skipping for now, need to implement next stored on mongodb")
 def test_object_pagination_changing_params_400(backend):
     r = backend.client.get(
         test.GET_OBJECTS_EP + "?match[version]=all&limit=2",
