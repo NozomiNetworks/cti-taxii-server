@@ -1,6 +1,8 @@
 import base64
 import os
 
+from pymongo import MongoClient
+
 from medallion import connect_to_backend, register_blueprints, set_config
 from medallion.common import (
     APPLICATION_INSTANCE, get_application_instance_config_values
@@ -76,13 +78,16 @@ class TaxiiTest():
             "filename": DATA_FILE,
             "clear_db": True
         },
-        "users": {
-            "root": "example",
-            "nozominetworks": "test",
-        },
+        "users": {},
         "taxii": {
             "max_page_size": 20,
         },
+        "auth": {
+            "module": "medallion.backends.auth.mongodb_auth",
+            "module_class": "AuthMongodbBackend",
+            "uri": "mongodb://root:example@localhost:27017/",
+            "db_name": "auth"
+        }
     }
 
     def setUp(self, start_threads=True):
@@ -110,6 +115,7 @@ class TaxiiTest():
         set_config(self.app, "backend", self.configuration)
         set_config(self.app, "users", self.configuration)
         set_config(self.app, "taxii", self.configuration)
+        set_config(self.app, "auth", self.configuration)
         if not start_threads:
             self.app.backend_config["run_cleanup_threads"] = False
         APPLICATION_INSTANCE.medallion_backend = connect_to_backend(get_application_instance_config_values(APPLICATION_INSTANCE,
@@ -117,14 +123,33 @@ class TaxiiTest():
                                                                     clear_db=True)
         self.client = APPLICATION_INSTANCE.test_client()
         if self.type == "memory_no_config" or self.type == "no_auth":
-            encoded_auth = "Basic " + \
-                base64.b64encode(b"user:pass").decode("ascii")
+            encoded_auth = "Basic " + base64.b64encode(b"user:pass").decode("ascii")
         elif self.type == "mongo":
-            encoded_auth = "Basic " + \
-                base64.b64encode(b"root:example").decode("ascii")
+            encoded_auth = "Basic " + base64.b64encode(b"root:example").decode("ascii")
+            client = MongoClient(self.configuration["backend"]["uri"])
+            client.drop_database("auth")
+            users = client.auth.create_collection("users")
+
+            users.insert_many([
+                {
+                    "_id": "admin",
+                    "password": "pbkdf2:sha256:150000$vhWiAWXq$a16882c2eaf4dbb5c55566c93ec256c189ebce855b0081f4903f09a23e8b2344"
+                },
+                {
+                    "_id": "user1",
+                    "password": "pbkdf2:sha256:150000$TVpGAgEI$dd391524abb0d9107ff5949ef512c150523c388cfa6490d8556d604f90de329e"
+                },
+                {
+                    "_id": "user2",
+                    "password": "pbkdf2:sha256:150000$CUo7l9Vz$3ff2da22dcb84c9ba64e2df4d1ee9f7061c1da4f8506618f53457f615178e3f3"
+                },
+                {
+                    "_id": "nozominetworks",
+                    "password": "pbkdf2:sha256:1000000$WMhyS14B$67163a08284f6f75eb254a21322425e1f7f91a121357679b0252f076172e43f0"
+                }
+            ])
         else:
-            encoded_auth = "Basic " + \
-                base64.b64encode(b"admin:Password0").decode("ascii")
+            encoded_auth = "Basic " + base64.b64encode(b"admin:Password0").decode("ascii")
         self.headers = {"Accept": "application/taxii+json;version=2.1", "Authorization": encoded_auth}
         self.post_headers = {
             "Content-Type": "application/taxii+json;version=2.1",
