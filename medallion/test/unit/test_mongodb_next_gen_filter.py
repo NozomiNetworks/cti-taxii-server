@@ -134,10 +134,10 @@ class TestMongoDBNextGenFilter:
 
     def get_mongodb_nextgen_fiter_with_mocks(self, **args: dict):
         f = MongoDBNextGenFilter(**args)
-        f._get_specific_version_objects_next = MagicMock(return_value=([], None))
-        f._get_combined_objects_next = MagicMock(return_value=([], None))
-        f._get_first_objects_next = MagicMock(return_value=([], None))
-        f._get_last_objects_next = MagicMock(return_value=([], None))
-        f._get_all_objects_next = MagicMock(return_value=([], None))
+        f._get_specific_version_objects_next = MagicMock(return_value=[])
+        f._get_combined_objects_next = MagicMock(return_value=[])
+        f._get_first_objects_next = MagicMock(return_value=[])
+        f._get_last_objects_next = MagicMock(return_value=[])
+        f._get_all_objects_next = MagicMock(return_value=[])
 
         return f
