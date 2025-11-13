@@ -424,21 +424,20 @@ class MongoBackend(Backend):
         objects_info = api_root_db["objects"]
         # set manually to properly retrieve manifests, and early to not break the pagination checks
         filter_args["match[id]"] = object_id
-        next_id, record = self._process_params(filter_args, limit)
 
         self._validate_object_id(objects_info, collection_id, object_id)
 
-        full_filter = MongoDBFilter(
+        full_filter_next_gen = MongoDBNextGenFilter(
             filter_args,
             {"_collection_id": {"$eq": collection_id}, "id": {"$eq": object_id}},
             allowed_filters,
-            record
+            api_root_db,
+            {"next": filter_args.get("next"), "limit": limit}
         )
-        count, objects_found = full_filter.process_filter(
-            objects_info,
-            allowed_filters,
-            "objects"
-        )
+
+        # Note: error handling was not added to following call as mongo will
+        # handle (user supplied) filters gracefully if they don't exist
+        objects_found, _next = full_filter_next_gen.process_objects_next_gen_filter(allowed_filters)
 
         for obj in objects_found:
             if "modified" in obj:
@@ -446,10 +445,12 @@ class MongoBackend(Backend):
             if "created" in obj:
                 obj["created"] = datetime_to_string_stix(float_to_datetime(obj["created"]))
 
+        next_id, more = _next, _next is not None
+
         manifest_resource = self._get_object_manifest(api_root, collection_id, filter_args, ("id", "type", "version", "spec_version"), limit)
         headers = get_custom_headers(manifest_resource)
 
-        next_id, more = self._update_record(next_id, count)
+        self._clean_results(objects_found)
         return create_resource("objects", objects_found, more, next_id), headers
 
     @catch_mongodb_error
