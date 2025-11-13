@@ -431,26 +431,34 @@ class MongoBackend(Backend):
     def delete_object(self, api_root, collection_id, object_id, filter_args, allowed_filters):
         api_root_db = self.client[api_root]
         objects_info = api_root_db["objects"]
+        objects_cache_info = api_root_db["objects_version_cache"]
 
-        self._validate_object_id(objects_info, collection_id, object_id)
-
-        # Currently it will delete the object and the matching manifest from the backend
-        full_filter = MongoDBFilter(
+        full_filter_next_gen = MongoDBNextGenFilter(
             filter_args,
             {"_collection_id": {"$eq": collection_id}, "id": {"$eq": object_id}},
             allowed_filters,
+            api_root_db,
+            {}
         )
-        count, objects_found = full_filter.process_filter(
-            objects_info,
-            allowed_filters,
-            "raw"
-        )
+
+        # Note: error handling was not added to following call as mongo will
+        # handle (user supplied) filters gracefully if they don't exist
+        objects_found, _ = full_filter_next_gen.process_objects_next_gen_filter(allowed_filters)
         if objects_found:
             for obj in objects_found:
                 obj_version = obj["_manifest"]["version"]
                 objects_info.delete_one(
                     {"_collection_id": collection_id, "id": object_id, "_manifest.version": obj_version}
                 )
+
+            # NEED TO UPDATE THE CACHE OBJECT
+            objects_cache_info.delete_one({"collection_id": collection_id, "id": object_id})
+            all_objects_found = api_root_db.objects.find({"_collection_id": collection_id, "id": object_id})
+
+            for obj in all_objects_found:
+                obj["_collection_id"] = collection_id
+                self.add_object_in_cache(objects_cache_info, obj, obj["_manifest"]["version"])
+
         else:
             raise ProcessingError("Object '{}' not found".format(object_id), 404)
 
