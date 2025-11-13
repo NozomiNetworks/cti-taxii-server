@@ -3,7 +3,7 @@ import logging
 import os
 import warnings
 
-from flask import Flask, Response, current_app, got_request_exception, json, g
+from flask import Flask, Response, current_app, g, got_request_exception, json
 from flask_httpauth import HTTPBasicAuth
 # OpenTelemetry imports
 from opentelemetry import trace
@@ -16,13 +16,13 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 import rollbar
 import rollbar.contrib.flask
+from werkzeug.security import check_password_hash
 
 from .backends import base as mbe_base
 from .common import APPLICATION_INSTANCE
 from .exceptions import BackendError, InitializationError, ProcessingError
 from .version import __version__  # noqa
 from .views import MEDIA_TYPE_TAXII_V21
-from werkzeug.security import check_password_hash
 
 # Console Handler for medallion messages
 ch = logging.StreamHandler()
@@ -153,7 +153,7 @@ def verify_basic_auth(username, password):
     if hasattr(current_app, "users_config"):
         return current_app.users_config.get(username) == password
 
-    logging.critical(f"Authentication backend is not configured properly.")
+    logging.critical("Authentication backend is not configured properly.")
     return False
 
 
