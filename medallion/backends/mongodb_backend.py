@@ -9,14 +9,12 @@ from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 from pymongo.synchronous.collection import Collection
 from six import string_types
 
-# from ..config import get_application_instance_config_values
 from ..common import (
     APPLICATION_INSTANCE, create_resource, datetime_to_float,
     datetime_to_string, datetime_to_string_stix, determine_spec_version,
     determine_version, float_to_datetime, generate_status,
     generate_status_details, get_application_instance_config_values,
-    get_custom_headers, get_timestamp, parse_request_parameters,
-    string_to_datetime
+    get_custom_headers, string_to_datetime
 )
 from ..exceptions import (
     InitializationError, MongoBackendError, ProcessingError
@@ -54,7 +52,6 @@ def find_manifest_entries_for_id(obj, manifest):
 
 
 class MongoBackend(Backend):
-
     # access control is handled at the views level
 
     @environ.config(prefix="MONGO")
@@ -63,8 +60,6 @@ class MongoBackend(Backend):
 
     def __init__(self, **kwargs):
         try:
-
-            self.pages = {}
             self.client = MongoClient(kwargs.get("uri"))
 
             # unless clearing the db has been explicitly specified, don't initialize if the discovery_database exits
@@ -87,37 +82,27 @@ class MongoBackend(Backend):
         """
         return "discovery_database" in self.client.list_database_names()
 
-    def _process_params(self, filter_args, limit):
-        next_id = filter_args.get("next")
-        if limit and next_id is None:
-            client_params = parse_request_parameters(filter_args)
-            record = {"skip": 0, "limit": limit, "args": client_params, "request_time": datetime_to_float(get_timestamp())}
-            next_id = str(uuid.uuid4())
-            self.pages[next_id] = record
-        elif limit and next_id:
-            if next_id not in self.pages:
-                raise ProcessingError("The server did not understand the request or filter parameters: 'next' not valid", 400)
-            client_params = parse_request_parameters(filter_args)
-            if self.pages[next_id]["args"] != client_params:
-                raise ProcessingError("The server did not understand the request or filter parameters: params changed over subsequent transaction", 400)
-            self.pages[next_id]["limit"] = limit
-            self.pages[next_id]["request_time"] = datetime_to_float(get_timestamp())
-            record = self.pages[next_id]
-        else:
-            record = {}
-        return next_id, record
+    def _get_next_doc_id(self, pagination_collection: Collection, next_id: str | None) -> str | None:
+        if not next_id:
+            return None
 
-    def _update_record(self, next_id, count, internal=False):
-        more = False
-        if next_id:
-            if internal is False:
-                self.pages[next_id]["skip"] += self.pages[next_id]["limit"]
-            if self.pages[next_id]["skip"] >= count:
-                self.pages.pop(next_id, None)
-                next_id = None
-            else:
-                more = True
-        return next_id, more
+        if doc := pagination_collection.find_one({"id": next_id}):
+            return doc["last_doc_id"]
+
+        return None
+
+    def _create_next(self, pagination_collection: Collection, next_id: str | None) -> str | None:
+        if not next_id:
+            return None
+
+        new_uuid = str(uuid.uuid4())
+        pagination_collection.insert_one(
+            {
+                "id": new_uuid,
+                "last_doc_id": next_id
+            }
+        )
+        return new_uuid
 
     def _validate_object_id(self, manifest_info, collection_id, object_id):
         result = list(manifest_info.find({"_collection_id": collection_id, "id": object_id}).limit(1))
@@ -125,14 +110,8 @@ class MongoBackend(Backend):
             raise ProcessingError("Object '{}' not found".format(object_id), 404)
 
     def _pop_expired_sessions(self):
-        expired_ids = []
-        boundary = datetime_to_float(get_timestamp())
-        for next_id, record in self.pages.items():
-            if boundary - record["request_time"] > self.timeout:
-                expired_ids.append(next_id)
-
-        for item in expired_ids:
-            self.pages.pop(item)
+        # next id deletion will be managed by TTL
+        pass
 
     def _pop_old_statuses(self):
         if "discovery_database" in self.client.list_database_names():
@@ -255,18 +234,21 @@ class MongoBackend(Backend):
     @catch_mongodb_error
     def get_object_manifest(self, api_root, collection_id, filter_args, allowed_filters, limit):
         api_root_db = self.client[api_root]
+        _next = self._get_next_doc_id(api_root_db["pagination"], filter_args.get("next"))
         full_filter_next_gen = MongoDBNextGenFilter(
             filter_args,
             {"_collection_id": {"$eq": collection_id}},
             allowed_filters,
             api_root_db,
-            {"next": filter_args.get("next"), "limit": limit}
+            {"next": _next, "limit": limit}
         )
 
         results, _next = full_filter_next_gen.process_objects_next_gen_filter(allowed_filters)
 
         next_id, more = _next, _next is not None
         manifests = [obj["_manifest"] for obj in results]
+        next_id = self._create_next(api_root_db["pagination"], next_id)
+
         manifest_resource = self._get_object_manifest(manifests, more, next_id)
         headers = get_custom_headers(manifest_resource)
 
@@ -300,14 +282,14 @@ class MongoBackend(Backend):
     @catch_mongodb_error
     def get_objects(self, api_root, collection_id, filter_args, allowed_filters, limit):
         api_root_db = self.client[api_root]
-        # next_id, record = self._process_params(filter_args, limit)
+        _next = self._get_next_doc_id(api_root_db["pagination"], filter_args.get("next"))
 
         full_filter_next_gen = MongoDBNextGenFilter(
             filter_args,
             {"_collection_id": {"$eq": collection_id}},
             allowed_filters,
             api_root_db,
-            {"next": filter_args.get("next"), "limit": limit}
+            {"next": _next, "limit": limit}
         )
 
         # Note: error handling was not added to following call as mongo will
@@ -321,6 +303,7 @@ class MongoBackend(Backend):
                 obj["created"] = datetime_to_string_stix(float_to_datetime(obj["created"]))
 
         next_id, more = _next, _next is not None
+        next_id = self._create_next(api_root_db["pagination"], next_id)
 
         manifests = [obj["_manifest"] for obj in objects_found]
         manifest_resource = self._get_object_manifest(manifests, more, next_id)
@@ -404,13 +387,14 @@ class MongoBackend(Backend):
         filter_args["match[id]"] = object_id
 
         self._validate_object_id(objects_info, collection_id, object_id)
+        _next = self._get_next_doc_id(api_root_db["pagination"], filter_args.get("next"))
 
         full_filter_next_gen = MongoDBNextGenFilter(
             filter_args,
             {"_collection_id": {"$eq": collection_id}, "id": {"$eq": object_id}},
             allowed_filters,
             api_root_db,
-            {"next": filter_args.get("next"), "limit": limit}
+            {"next": _next, "limit": limit}
         )
 
         # Note: error handling was not added to following call as mongo will
@@ -424,6 +408,7 @@ class MongoBackend(Backend):
                 obj["created"] = datetime_to_string_stix(float_to_datetime(obj["created"]))
 
         next_id, more = _next, _next is not None
+        next_id = self._create_next(api_root_db["pagination"], next_id)
         manifests = [obj["_manifest"] for obj in objects_found]
         manifest_resource = self._get_object_manifest(manifests, more, next_id)
         headers = get_custom_headers(manifest_resource)
@@ -466,19 +451,21 @@ class MongoBackend(Backend):
         filter_args["match[version]"] = "all"
 
         self._validate_object_id(objects_info, collection_id, object_id)
+        _next = self._get_next_doc_id(api_root_db["pagination"], filter_args.get("next"))
 
         full_filter_next_gen = MongoDBNextGenFilter(
             filter_args,
             {"_collection_id": {"$eq": collection_id}, "id": {"$eq": object_id}},
             allowed_filters,
             api_root_db,
-            {"next": filter_args.get("next"), "limit": limit}
+            {"next": _next, "limit": limit}
         )
 
         manifests_found, _next = full_filter_next_gen.process_manifests_next_gen_filter(allowed_filters)
         versions = list(map(lambda x: datetime_to_string_stix(float_to_datetime(x["version"])), manifests_found))
 
         next_id, more = _next, _next is not None
+        next_id = self._create_next(api_root_db["pagination"], next_id)
         manifest_resource = self._get_object_manifest(manifests_found, more, next_id)
         headers = get_custom_headers(manifest_resource)
 
@@ -520,6 +507,7 @@ class MongoBackend(Backend):
 
             # Cache objects version to keep track of the latest object's version
             api_db.create_collection("objects_version_cache")
+            api_db.create_collection("pagination")
 
             for collection in api_root_data["collections"]:
                 collection_id = collection["id"]

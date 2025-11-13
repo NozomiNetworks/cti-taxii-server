@@ -299,7 +299,6 @@ def test_get_objects_added_after(backend):
     assert len(objs['objects']) == 3
 
 
-@pytest.mark.skip("Skipping for now, need to implement next stored on mongodb")
 def test_get_objects_limit(backend):
     r = backend.client.get(
         test.GET_OBJECTS_EP + "?limit=3",

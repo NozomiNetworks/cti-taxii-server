@@ -1,4 +1,3 @@
-from bson import ObjectId
 from pymongo.synchronous.database import Database
 
 from ..common import datetime_to_float, string_to_datetime
@@ -52,7 +51,8 @@ class MongoDBNextGenFilter(MongoDBFilter):
             results = self._get_specific_version_objects_next(pipeline, match_version)
 
         if len(results) > self.limit:
-            return results[:self.limit], str(results[self.limit]["_id"])
+            limited_results = results[:self.limit]
+            return limited_results, limited_results[-1]["_manifest"]["date_added"]
 
         return results, None
 
@@ -125,10 +125,9 @@ class MongoDBNextGenFilter(MongoDBFilter):
             )
 
             # 5. Update cursor to last _id seen
-            self.next = str(max(r["_id"] for r in temp_results))
+            self.next = temp_results[-1]["_manifest"]["date_added"]
 
-        results = sorted(results, key=lambda x: x["_manifest"]["date_added"])
-        return results
+        return sorted(results, key=lambda x: x["_manifest"]["date_added"])
 
     @staticmethod
     def _update_pipeline_with_version_dates(pipeline: dict, match_version: str):
@@ -223,7 +222,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
             return "_2_1"
 
     def _are_cache_objects_finished(self, temp_results: list[dict]) -> bool:
-        return len(temp_results) == 0 or (len(temp_results) == 1 and temp_results[0]["_id"] == ObjectId(self.next))
+        return len(temp_results) == 0
 
     def _get_sorted_results_with_next_limit_on_objects(self, pipeline: dict, limit: int) -> list[dict]:
         """Get sorted results by _id with next and limit on objects collection.
@@ -243,4 +242,4 @@ class MongoDBNextGenFilter(MongoDBFilter):
     def _append_next_if_exists(self, pipeline: dict):
         """Append the next parameter to the pipeline if it exists."""
         if self.next:
-            pipeline.update({"_id": {"$gte": ObjectId(self.next)}})
+            pipeline.update({"_manifest.date_added": {"$gt": self.next}})
