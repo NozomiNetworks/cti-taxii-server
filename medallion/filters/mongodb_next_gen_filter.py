@@ -13,7 +13,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
         self.full_query = self._query_parameters(allowed)
         self.api_root_db = api_root_db
         self.oversampling_factor = 5
-        self.limit = record["limit"]
+        self.limit = record.get("limit")
         self.next = record.get("next")
 
     def process_manifests_next_gen_filter(self, allowed: tuple[str]) -> tuple[list[dict], tuple[str, str] | None]:
@@ -49,7 +49,10 @@ class MongoDBNextGenFilter(MongoDBFilter):
             results = self._get_combined_objects_next(pipeline)
 
         else:
-            results = self._get_specific_version_objects_next(pipeline, match_version)
+            results = self._get_specific_version_objects_next(pipeline)
+
+        if self.limit is None:
+            return results, None
 
         if len(results) > self.limit:
             limited_results = results[:self.limit]
@@ -79,11 +82,9 @@ class MongoDBNextGenFilter(MongoDBFilter):
         """Get all versions of each object."""
         return self._get_combined_objects_next(pipeline)
 
-    def _get_specific_version_objects_next(self, pipeline: dict, version: str) -> list[dict]:
+    def _get_specific_version_objects_next(self, pipeline: dict) -> list[dict]:
         """Get only the specific version of each object."""
-        pipeline.update({"_manifest.version": {"$eq": datetime_to_float(string_to_datetime(version))}})
-
-        return self._get_sorted_results_with_next_limit_on_objects(pipeline, self.limit + 1)
+        return self._get_combined_objects_next(pipeline)
 
     def _get_last_objects_next(self, pipeline: dict) -> list[dict]:
         """Get only the last versions of each object."""
@@ -101,12 +102,10 @@ class MongoDBNextGenFilter(MongoDBFilter):
         results = []
         suffix = self._get_suffix_by_match_filters()
 
-        while len(results) < self.limit + 1:
+        while self.limit is None or (len(results) < self.limit + 1):
             # 1. Fetch batch: pageSize × OVERSAMPLING_FACTOR documents (sorted by _id)
-            temp_results = self._get_sorted_results_with_next_limit_on_objects(
-                pipeline,
-                self.limit * self.oversampling_factor,
-            )
+            limit = self.limit * self.oversampling_factor if self.limit is not None else 500
+            temp_results = self._get_sorted_results_with_next_limit_on_objects(pipeline, limit)
 
             if self._are_cache_objects_finished(temp_results):
                 break
@@ -144,11 +143,11 @@ class MongoDBNextGenFilter(MongoDBFilter):
         ] if "all" not in match_version else []
 
         if version_dates:
-            pipeline.update({"versions": {"$in": version_dates}})
+            pipeline.update({"_manifest.version": {"$in": version_dates}})
 
     def _generate_matching_tuple(self, suffix: str, match_version: str, temp_results: list[dict], matching_docs: list[str]) -> set[tuple[str, str]]:
         """Get the matching tuples based on the match_version."""
-        if "all" in match_version:
+        if "all" in match_version or "first" not in match_version and "last" not in match_version:
             return self._get_matching_tuple_for_all_match_version(suffix, temp_results, matching_docs)
         else:
             return self._get_matching_tuple_with_generic_match_version(suffix, match_version, matching_docs)

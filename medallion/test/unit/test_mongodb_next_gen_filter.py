@@ -15,7 +15,7 @@ class TestMongoDBNextGenFilter:
         )
 
         mongodb_nextgen_fiter.process_objects_next_gen_filter(("version",))
-        mongodb_nextgen_fiter._get_specific_version_objects_next.assert_called_once_with({}, '2017-01-27T13:49:53.935Z')
+        mongodb_nextgen_fiter._get_specific_version_objects_next.assert_called_once_with({})
         mongodb_nextgen_fiter._get_combined_objects_next.assert_not_called()
         mongodb_nextgen_fiter._get_first_objects_next.assert_not_called()
         mongodb_nextgen_fiter._get_last_objects_next.assert_not_called()
