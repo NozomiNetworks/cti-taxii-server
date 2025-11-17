@@ -129,6 +129,7 @@ def main():
     set_config(APPLICATION_INSTANCE, "users", configuration)
     set_config(APPLICATION_INSTANCE, "taxii", configuration)
     set_config(APPLICATION_INSTANCE, "backend", configuration)
+    set_config(APPLICATION_INSTANCE, "auth", configuration)
 
     APPLICATION_INSTANCE.medallion_backend = connect_to_backend(
         get_application_instance_config_values(APPLICATION_INSTANCE, "backend"))
