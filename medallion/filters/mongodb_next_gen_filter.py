@@ -226,9 +226,16 @@ class MongoDBNextGenFilter(MongoDBFilter):
         return len(temp_results) == 0
 
     def _get_sorted_results_with_next_limit_on_objects(self, pipeline: dict, limit: int) -> list[dict]:
-        """Get sorted results by _id with next and limit on objects collection.
+        """Get sorted results by date_added and _id with next and limit applied.
 
-        This is the basic method to retrieve the results from the objects collection.
+        This method handles the basic pagination request, and giving the filters in the pipeline it runs the query against objects collection.
+        The pagination with _next is done based on two fields: date_added and _id.
+        The _next filter only applied on date_added, and then the results are filtered in memory to return only those which appear later than _id.
+        This solves the following issue:
+        Given objects with the following id: A, B, C, D, but sorted by date_added as: A, C, B, D, a query with limit=2 first returns A and C.
+        The next query with next=(date_added of C, C) should return B and D, but if we filter for both date_added and _id in the query, B would be skipped as
+        its date_added is less than C.
+        For this reason, we only filter by date_added in the query, and then filter by _id in memory to retrieve elements that come after the given _id.
         """
         if self.next:
             date_added, _id = self.next
@@ -245,6 +252,12 @@ class MongoDBNextGenFilter(MongoDBFilter):
         if self.next:
             for i, val in enumerate(results):
                 if val["_id"] == ObjectId(_id):
-                    return results[i + 1:]
+                    # If the remaining_results is empty, it means the sampling window is not large enough to get new results, and
+                    # it is returning the same items again and again.
+                    if len(remaining_results := results[i + 1:]) == 0:
+                        del pipeline["_manifest.date_added"]
+                        return self._get_sorted_results_with_next_limit_on_objects(pipeline, limit * self.oversampling_factor)
+
+                    return remaining_results
 
         return results
