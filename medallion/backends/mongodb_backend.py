@@ -1,3 +1,4 @@
+import datetime
 from copy import deepcopy
 import io
 import json
@@ -110,6 +111,7 @@ class MongoBackend(Backend):
         pagination_collection.insert_one(
             {
                 "last_doc_id": next_id,
+                "creation_time": datetime.datetime.now(datetime.UTC),
                 **new_args
             }
         )
