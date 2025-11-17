@@ -62,11 +62,7 @@ def set_config(flask_application_instance, prop_name, config):
         try:
             flask_application_instance.users_config = config[prop_name]
         except KeyError:
-            log.warning("You did not give user information in your config.")
-            log.warning("We are giving you the default user information of:")
-            log.warning("User = user")
-            log.warning("Pass = pass")
-            flask_application_instance.users_config = {"user": "pass"}
+            log.warning("You did not give user information in your config. Configure mongodb auth to have valid users.")
     elif prop_name == "auth" and prop_name in config:
         with flask_application_instance.app_context():
             log.debug(
