@@ -94,7 +94,7 @@ class MongoBackend(Backend):
             return None
 
         if doc := pagination_collection.find_one(args):
-            return doc["last_doc_id"]
+            return doc["last_doc_last_seen"]
 
         raise ProcessingError("The server did not understand the request or filter parameters: 'next' not valid", 400)
 
@@ -111,7 +111,7 @@ class MongoBackend(Backend):
         new_args['next'] = new_uuid
         pagination_collection.insert_one(
             {
-                "last_doc_id": next_id,
+                "last_doc_last_seen": next_id,
                 "creation_time": datetime.datetime.now(datetime.UTC),
                 **new_args
             }
