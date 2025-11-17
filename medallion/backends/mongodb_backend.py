@@ -83,11 +83,14 @@ class MongoBackend(Backend):
         """
         return "discovery_database" in self.client.list_database_names()
 
-    def _get_next_doc_id(self, pagination_collection: Collection, next_id: str | None, args: dict) -> str | None:
+    def _get_next_doc_id(self, pagination_collection: Collection, next_id: tuple[str, str] | None, args: dict) -> str | None:
         """Get the pagination token given the current request's next field and filters.
 
-        If filters change and a next field is provided that does not match any stored pagination token,
-        it will raise a ProcessingError exception.
+        If filters change and a next field that does not match any stored pagination token, it will raise a ProcessingError exception.
+
+        The next field is composed by the date_added and id of the last document seen in the previous request.
+        The date_added is used to filter the document using MongoDB filter.
+        The version is used to manually filter the documents with the same date_added value.
         """
         if not next_id:
             return None
@@ -97,7 +100,7 @@ class MongoBackend(Backend):
 
         raise ProcessingError("The server did not understand the request or filter parameters: 'next' not valid", 400)
 
-    def _create_next(self, pagination_collection: Collection, next_id: str | None, args: dict) -> str | None:
+    def _create_next(self, pagination_collection: Collection, next_id: tuple[str, str] | None, args: dict) -> str | None:
         """Create a next pagination token for the current request, based on the actual filters.
 
         The next field of the original request is changed with the new one.

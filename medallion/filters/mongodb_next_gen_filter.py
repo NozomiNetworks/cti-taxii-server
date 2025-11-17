@@ -1,3 +1,4 @@
+from bson import ObjectId
 from pymongo.synchronous.database import Database
 
 from ..common import datetime_to_float, string_to_datetime
@@ -15,19 +16,19 @@ class MongoDBNextGenFilter(MongoDBFilter):
         self.limit = record.get("limit")
         self.next = record.get("next")
 
-    def process_manifests_next_gen_filter(self, allowed: tuple[str]) -> tuple[list[dict], str | None]:
+    def process_manifests_next_gen_filter(self, allowed: tuple[str]) -> tuple[list[dict], tuple[str, str] | None]:
         results, _next = self._process_objects_next_gen_filter_raw(allowed)
 
         return [r["_manifest"] for r in results], _next
 
-    def process_objects_next_gen_filter(self, allowed: tuple[str]) -> tuple[list[dict], str | None]:
+    def process_objects_next_gen_filter(self, allowed: tuple[str]) -> tuple[list[dict], tuple[str, str] | None]:
         results, _next = self._process_objects_next_gen_filter_raw(allowed)
 
         self._remove_id(results)
 
         return results, _next
 
-    def _process_objects_next_gen_filter_raw(self, allowed: tuple[str]) -> tuple[list[dict], str | None]:
+    def _process_objects_next_gen_filter_raw(self, allowed: tuple[str]) -> tuple[list[dict], tuple[str, str] | None]:
         # Basic filter pipeline with id, type, added_after, spec_version
         # collection_id is part of the basic filter
         pipeline = self.full_query
@@ -55,7 +56,8 @@ class MongoDBNextGenFilter(MongoDBFilter):
 
         if len(results) > self.limit:
             limited_results = results[:self.limit]
-            return limited_results, limited_results[-1]["_manifest"]["date_added"]
+            last_returned_item = limited_results[-1]
+            return limited_results, (last_returned_item["_manifest"]["date_added"], str(last_returned_item["_id"]))
 
         return results, None
 
@@ -124,7 +126,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
             )
 
             # 5. Update cursor to last _id seen
-            self.next = temp_results[-1]["_manifest"]["date_added"]
+            self.next = (temp_results[-1]["_manifest"]["date_added"], temp_results[-1]["_id"])
 
         return sorted(results, key=lambda x: x["_manifest"]["date_added"])
 
@@ -224,21 +226,38 @@ class MongoDBNextGenFilter(MongoDBFilter):
         return len(temp_results) == 0
 
     def _get_sorted_results_with_next_limit_on_objects(self, pipeline: dict, limit: int) -> list[dict]:
-        """Get sorted results by _id with next and limit on objects collection.
+        """Get sorted results by date_added and _id with next and limit applied.
 
-        This is the basic method to retrieve the results from the objects collection.
+        This method handles the basic pagination request, and giving the filters in the pipeline it runs the query against objects collection.
+        The pagination with _next is done based on two fields: date_added and _id.
+        The _next filter only applied on date_added, and then the results are filtered in memory to return only those which appear later than _id.
+        This solves the following issue:
+        Given objects with the following id: A, B, C, D, but sorted by date_added as: A, C, B, D, a query with limit=2 first returns A and C.
+        The next query with next=(date_added of C, C) should return B and D, but if we filter for both date_added and _id in the query, B would be skipped as
+        its date_added is less than C.
+        For this reason, we only filter by date_added in the query, and then filter by _id in memory to retrieve elements that come after the given _id.
         """
-        self._append_next_if_exists(pipeline)
+        if self.next:
+            date_added, _id = self.next
+            pipeline.update({"_manifest.date_added": {"$gte": date_added}})
+
         results = list(
             self.api_root_db.objects.find(
                 pipeline,
-                sort=[('_manifest.date_added', 1)],
+                sort=[('_manifest.date_added', 1), ('_id', 1)],
                 projection={"_collection_id": 0}
             ).limit(limit)
         )
-        return results
 
-    def _append_next_if_exists(self, pipeline: dict):
-        """Append the next parameter to the pipeline if it exists."""
         if self.next:
-            pipeline.update({"_manifest.date_added": {"$gt": self.next}})
+            for i, val in enumerate(results):
+                if val["_id"] == ObjectId(_id):
+                    # If the remaining_results is empty even if there are still results to paginate (the query returns the maximum number of results),
+                    # it means the sampling window is not large enough to get new results, and it is returning the same items over and over.
+                    if len(remaining_results := results[i + 1:]) == 0 and len(results) == limit:
+                        del pipeline["_manifest.date_added"]
+                        return self._get_sorted_results_with_next_limit_on_objects(pipeline, limit * self.oversampling_factor)
+
+                    return remaining_results
+
+        return results
