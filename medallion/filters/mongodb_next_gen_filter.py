@@ -1,3 +1,4 @@
+from bson import ObjectId
 from pymongo.synchronous.database import Database
 
 from ..common import datetime_to_float, string_to_datetime
@@ -15,19 +16,19 @@ class MongoDBNextGenFilter(MongoDBFilter):
         self.limit = record["limit"]
         self.next = record.get("next")
 
-    def process_manifests_next_gen_filter(self, allowed: tuple[str]) -> tuple[list[dict], str | None]:
+    def process_manifests_next_gen_filter(self, allowed: tuple[str]) -> tuple[list[dict], tuple[str, str] | None]:
         results, _next = self._process_objects_next_gen_filter_raw(allowed)
 
         return [r["_manifest"] for r in results], _next
 
-    def process_objects_next_gen_filter(self, allowed: tuple[str]) -> tuple[list[dict], str | None]:
+    def process_objects_next_gen_filter(self, allowed: tuple[str]) -> tuple[list[dict], tuple[str, str] | None]:
         results, _next = self._process_objects_next_gen_filter_raw(allowed)
 
         self._remove_id(results)
 
         return results, _next
 
-    def _process_objects_next_gen_filter_raw(self, allowed: tuple[str]) -> tuple[list[dict], str | None]:
+    def _process_objects_next_gen_filter_raw(self, allowed: tuple[str]) -> tuple[list[dict], tuple[str, str] | None]:
         # Basic filter pipeline with id, type, added_after, spec_version
         # collection_id is part of the basic filter
         pipeline = self.full_query
@@ -52,7 +53,8 @@ class MongoDBNextGenFilter(MongoDBFilter):
 
         if len(results) > self.limit:
             limited_results = results[:self.limit]
-            return limited_results, limited_results[-1]["_manifest"]["date_added"]
+            last_returned_item = limited_results[-1]
+            return limited_results, (last_returned_item["_manifest"]["date_added"], str(last_returned_item["_id"]))
 
         return results, None
 
@@ -104,7 +106,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
             temp_results = self._get_sorted_results_with_next_limit_on_objects(
                 pipeline,
                 self.limit * self.oversampling_factor,
-                )
+            )
 
             if self._are_cache_objects_finished(temp_results):
                 break
@@ -125,7 +127,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
             )
 
             # 5. Update cursor to last _id seen
-            self.next = temp_results[-1]["_manifest"]["date_added"]
+            self.next = (temp_results[-1]["_manifest"]["date_added"], temp_results[-1]["_id"])
 
         return sorted(results, key=lambda x: x["_manifest"]["date_added"])
 
@@ -229,17 +231,21 @@ class MongoDBNextGenFilter(MongoDBFilter):
 
         This is the basic method to retrieve the results from the objects collection.
         """
-        self._append_next_if_exists(pipeline)
+        if self.next:
+            date_added, _id = self.next
+            pipeline.update({"_manifest.date_added": {"$gte": date_added}})
+
         results = list(
             self.api_root_db.objects.find(
                 pipeline,
-                sort=[('_manifest.date_added', 1)],
+                sort=[('_manifest.date_added', 1), ('_id', 1)],
                 projection={"_collection_id": 0}
             ).limit(limit)
         )
-        return results
 
-    def _append_next_if_exists(self, pipeline: dict):
-        """Append the next parameter to the pipeline if it exists."""
         if self.next:
-            pipeline.update({"_manifest.date_added": {"$gt": self.next}})
+            for i, val in enumerate(results):
+                if val["_id"] == ObjectId(_id):
+                    return results[i + 1:]
+
+        return results
