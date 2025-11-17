@@ -252,9 +252,9 @@ class MongoDBNextGenFilter(MongoDBFilter):
         if self.next:
             for i, val in enumerate(results):
                 if val["_id"] == ObjectId(_id):
-                    # If the remaining_results is empty, it means the sampling window is not large enough to get new results, and
-                    # it is returning the same items again and again.
-                    if len(remaining_results := results[i + 1:]) == 0:
+                    # If the remaining_results is empty even if there are still results to paginate (the query returns the maximum number of results),
+                    # it means the sampling window is not large enough to get new results, and it is returning the same items over and over.
+                    if len(remaining_results := results[i + 1:]) == 0 and len(results) == limit:
                         del pipeline["_manifest.date_added"]
                         return self._get_sorted_results_with_next_limit_on_objects(pipeline, limit * self.oversampling_factor)
 
