@@ -78,10 +78,10 @@ def test_get_api_root_information(backend):
 
 def test_get_status(backend):
     r = backend.client.get(
-            test.API_ROOT_EP + "status/2d086da7-4bdc-4f91-900e-d77486753710",
-            headers=backend.nozomi_auth_headers,
-            follow_redirects=True,
-        )
+        test.API_ROOT_EP + "status/2d086da7-4bdc-4f91-900e-d77486753710",
+        headers=backend.nozomi_auth_headers,
+        follow_redirects=True,
+    )
 
     assert r.status_code == 200
     assert r.content_type == MEDIA_TYPE_TAXII_V21
@@ -109,7 +109,6 @@ def test_get_collections(backend):
 
 
 def test_get_objects(backend):
-
     r = backend.client.get(
         test.GET_OBJECTS_EP,
         headers=backend.nozomi_auth_headers,
@@ -137,7 +136,6 @@ def test_get_objects(backend):
 
 
 def test_get_object(backend):
-
     r = backend.client.get(
         test.GET_OBJECTS_EP + "malware--c0931cc6-c75e-47e5-9036-78fabc95d4ec/",
         headers=backend.nozomi_auth_headers,
@@ -248,7 +246,6 @@ def test_add_and_delete_object(backend):
 
 
 def test_get_object_manifests(backend):
-
     r = backend.client.get(
         test.GET_MANIFESTS_EP,
         headers=backend.nozomi_auth_headers,
@@ -533,7 +530,8 @@ def test_get_object_limit(backend):
     assert objs['objects'][1]['modified'] == '2016-12-25T12:30:59.444Z'
 
     r = backend.client.get(
-        test.GET_OBJECTS_EP + "indicator--6770298f-0fd8-471a-ab8c-1c658a46574e?match[version]=all&limit=2&next=" + objs['next'],
+        test.GET_OBJECTS_EP + "indicator--6770298f-0fd8-471a-ab8c-1c658a46574e?match[version]=all&limit=2&next=" + objs[
+            'next'],
         headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
@@ -568,7 +566,6 @@ def test_get_object_version_single(backend, filter, modified):
 
 
 def test_get_object_version_match_all(backend):
-
     r = backend.client.get(
         test.GET_OBJECTS_EP + "indicator--6770298f-0fd8-471a-ab8c-1c658a46574e?match[version]=all",
         headers=backend.nozomi_auth_headers,
@@ -609,7 +606,8 @@ def test_get_object_spec_version_21(backend):
 
 def test_get_object_spec_version_2021(backend):
     # though this is getting objects with every spec_version, the version filter gets only the latest object.
-    objs = get_object_spec_version(backend, "malware--c0931cc6-c75e-47e5-9036-78fabc95d4ec", "?match[spec_version]=2.0,2.1")
+    objs = get_object_spec_version(backend, "malware--c0931cc6-c75e-47e5-9036-78fabc95d4ec",
+                                   "?match[spec_version]=2.0,2.1")
     for obj in objs['objects']:
         if obj['id'] == "malware--c0931cc6-c75e-47e5-9036-78fabc95d4ec":
             assert obj['modified'] == "2018-02-23T18:30:00.000Z"
@@ -711,7 +709,6 @@ def test_get_manifest_type(backend):
 
 
 def get_manifest_version(backend, filter):
-
     r = backend.client.get(
         test.GET_MANIFESTS_EP + filter,
         headers=backend.nozomi_auth_headers,
@@ -822,7 +819,6 @@ def test_get_version_added_after(backend):
 
 
 def test_get_version_limit(backend):
-
     r = backend.client.get(
         test.GET_OBJECTS_EP + "indicator--6770298f-0fd8-471a-ab8c-1c658a46574e/versions?limit=1",
         headers=backend.nozomi_auth_headers,
@@ -883,19 +879,22 @@ def get_version_spec_version(backend, filter):
 
 
 def test_get_version_spec_version_20(backend):
-    objs = get_version_spec_version(backend, "malware--c0931cc6-c75e-47e5-9036-78fabc95d4ec/versions?match[spec_version]=2.0")
+    objs = get_version_spec_version(backend,
+                                    "malware--c0931cc6-c75e-47e5-9036-78fabc95d4ec/versions?match[spec_version]=2.0")
     assert len(objs["versions"]) == 1
     assert objs["versions"][0] == "2018-02-23T18:30:00.000Z"
 
 
 def test_get_version_spec_version_21(backend):
-    objs = get_version_spec_version(backend, "malware--c0931cc6-c75e-47e5-9036-78fabc95d4ec/versions?match[spec_version]=2.1")
+    objs = get_version_spec_version(backend,
+                                    "malware--c0931cc6-c75e-47e5-9036-78fabc95d4ec/versions?match[spec_version]=2.1")
     assert len(objs["versions"]) == 1
     assert objs["versions"][0] == "2017-01-27T13:49:53.997Z"
 
 
 def test_get_version_spec_version_2021(backend):
-    objs = get_version_spec_version(backend, "malware--c0931cc6-c75e-47e5-9036-78fabc95d4ec/versions?match[spec_version]=2.0,2.1")
+    objs = get_version_spec_version(backend,
+                                    "malware--c0931cc6-c75e-47e5-9036-78fabc95d4ec/versions?match[spec_version]=2.0,2.1")
     assert len(objs["versions"]) == 2
 
 
@@ -1159,6 +1158,7 @@ def test_SCO_versioning(backend):
     objs = r.json
     assert len(objs) == 0
 
+
 # combine filters together where problems may occur
 
 
@@ -1169,7 +1169,6 @@ def test_get_api_root_information_not_existent(backend):
 
 
 def test_get_collection_not_existent(backend):
-
     r = backend.client.get(
         test.NON_EXISTENT_COLLECTION_EP,
         headers=backend.nozomi_auth_headers,
@@ -1190,7 +1189,8 @@ def test_get_collections_404(backend):
 
 def test_get_collection_404(backend):
     # note that api root "carbon1" is nonexistent
-    r = backend.client.get("/carbon1/collections/12345678-1234-1234-1234-123456789012/", headers=backend.nozomi_auth_headers)
+    r = backend.client.get("/carbon1/collections/12345678-1234-1234-1234-123456789012/",
+                           headers=backend.nozomi_auth_headers)
     assert r.status_code == 404
 
 
@@ -1227,7 +1227,7 @@ def test_get_object_manifest_404(backend):
 
 def test_get_object_401(backend):
     r = backend.client.get(
-       test.GET_OBJECTS_EP + "malware--fdd60b30-b67c-11e3-b0b9-f01faf20d111/",
+        test.GET_OBJECTS_EP + "malware--fdd60b30-b67c-11e3-b0b9-f01faf20d111/",
     )
     assert r.status_code == 401
 
@@ -1432,21 +1432,22 @@ def test_default_backend_no_backend_section():
         assert str(e.value) == "You did not give backend information in your config."
     server.tearDown()
 
+
 # test collections with different can_read and can_write values
 
 
 # test if program will accept duplicate objects being posted
 def test_object_already_present(backend):
     object_copy = {
-                        "created": "2014-05-08T09:00:00.000Z",
-                        "modified": "2014-05-08T09:00:00.000Z",
-                        "id": "relationship--2f9a9aa9-108a-4333-83e2-4fb25add0463",
-                        "relationship_type": "indicates",
-                        "source_ref": "indicator--cd981c25-8042-4166-8945-51178443bdac",
-                        "spec_version": "2.1",
-                        "target_ref": "malware--c0931cc6-c75e-47e5-9036-78fabc95d4ec",
-                        "type": "relationship"
-                    }
+        "created": "2014-05-08T09:00:00.000Z",
+        "modified": "2014-05-08T09:00:00.000Z",
+        "id": "relationship--2f9a9aa9-108a-4333-83e2-4fb25add0463",
+        "relationship_type": "indicates",
+        "source_ref": "indicator--cd981c25-8042-4166-8945-51178443bdac",
+        "spec_version": "2.1",
+        "target_ref": "malware--c0931cc6-c75e-47e5-9036-78fabc95d4ec",
+        "type": "relationship"
+    }
     object_copy2 = object_copy.copy()
     del object_copy2['modified']
     add_objects = {"objects": []}
@@ -1562,3 +1563,9 @@ def test_get_objects_match_type_spec_version(backend):
     assert obj['objects'][0]['type'] == "indicator"
     assert obj['objects'][0]['id'] == object_id
     assert obj['objects'][0]['spec_version'] == "2.0"
+
+
+def test_healthcheck(backend):
+    r = backend.client.get(test.HEALTHCHECK_EP)
+    assert r.status_code == 200
+    assert r.json == {"pong": True}
