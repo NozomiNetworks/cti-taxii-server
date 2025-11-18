@@ -127,7 +127,9 @@ def connect_to_backend(config_info, clear_db=False):
 
 
 def register_blueprints(flask_application_instance):
-    from medallion.views import collections, discovery, manifest, objects, healthcheck
+    from medallion.views import (
+        collections, discovery, healthcheck, manifest, objects
+    )
 
     with flask_application_instance.app_context():
         log.debug("Registering medallion blueprints into {}".format(current_app))
