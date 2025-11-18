@@ -24,7 +24,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
     def process_objects_next_gen_filter(self, allowed: tuple[str]) -> tuple[list[dict], tuple[str, str] | None]:
         results, _next = self._process_objects_next_gen_filter_raw(allowed)
 
-        self._remove_id(results)
+        self._remove_ids(results)
 
         return results, _next
 
@@ -62,9 +62,10 @@ class MongoDBNextGenFilter(MongoDBFilter):
         return results, None
 
     @staticmethod
-    def _remove_id(results: list[dict]):
+    def _remove_ids(results: list[dict]):
         for res in results:
             del res["_id"]
+            del res["_collection_id"]
 
     def _get_match_version_from_filter(self, allowed) -> str | None:
         if "version" not in allowed:
@@ -111,7 +112,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
                 break
 
             # 3. Bulk query cache for latest/earliest versions
-            query_conditions = [{"id": obj["id"]} for obj in temp_results]
+            query_conditions = [{"id": obj["id"], "collection_id": obj["_collection_id"]} for obj in temp_results]
 
             # 4. Filter: keep only docs where doc._version == cache.latest_version
             matching_docs = list(self.api_root_db.objects_version_cache.find({"$or": query_conditions}))
@@ -244,8 +245,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
         results = list(
             self.api_root_db.objects.find(
                 pipeline,
-                sort=[('_manifest.date_added', 1), ('_id', 1)],
-                projection={"_collection_id": 0}
+                sort=[('_manifest.date_added', 1), ('_id', 1)]
             ).limit(limit)
         )
 
