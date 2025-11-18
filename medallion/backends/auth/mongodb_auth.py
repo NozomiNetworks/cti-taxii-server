@@ -29,3 +29,8 @@ class AuthMongodbBackend(AuthBackend):
             return user_obj['password']
         else:
             return None
+
+    def get_user_by_username(self, username: str) -> dict | None:
+        db = self.client[self.db_name]
+        users = db['users']
+        return users.find_one({"_id": username})

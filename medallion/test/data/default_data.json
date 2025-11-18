@@ -279,7 +279,8 @@
                         "media_type": "application/stix+json;version=2.1",
                         "version": "2017-01-27T13:49:53.935Z"
                     }
-                ]
+                ],
+                "license": "nozomi"
             },
             {
                 "id": "52892447-4d7e-4f70-b94d-d7f22742ff63",
@@ -291,7 +292,8 @@
                     "application/stix+json;version=2.1"
                 ],
                 "objects": [],
-                "manifest": []
+                "manifest": [],
+                "license": "nozomi"
             },
             {
                 "id": "64993447-4d7e-4f70-b94d-d7f33742ee63",
@@ -303,7 +305,21 @@
                     "application/stix+json;version=2.1"
                 ],
                 "objects": [],
-                "manifest": []
+                "manifest": [],
+                "license": "nozomi"
+            },
+            {
+                "id": "54993447-4d7e-4f70-b94d-d7f33742ee63",
+                "title": "Mandiant Indicators",
+                "description": "This data collection is for collecting Mandiant IOCs",
+                "can_read": true,
+                "can_write": false,
+                "media_types": [
+                    "application/stix+json;version=2.1"
+                ],
+                "objects": [],
+                "manifest": [],
+                "license": "mandiant"
             }
         ]
     }

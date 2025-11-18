@@ -3,7 +3,7 @@ import logging
 import os
 import warnings
 
-from flask import Flask, Response, current_app, g, got_request_exception, json
+from flask import Flask, Response, current_app, got_request_exception, json
 from flask_httpauth import HTTPBasicAuth
 # OpenTelemetry imports
 from opentelemetry import trace
@@ -19,10 +19,9 @@ import rollbar.contrib.flask
 from werkzeug.security import check_password_hash
 
 from .backends import base as mbe_base
-from .common import APPLICATION_INSTANCE
+from .common import APPLICATION_INSTANCE, MEDIA_TYPE_TAXII_V21
 from .exceptions import BackendError, InitializationError, ProcessingError
 from .version import __version__  # noqa
-from .views import MEDIA_TYPE_TAXII_V21
 
 # Console Handler for medallion messages
 ch = logging.StreamHandler()
@@ -144,7 +143,6 @@ def register_blueprints(flask_application_instance):
 def verify_basic_auth(username, password):
     if hasattr(current_app, "auth_backend"):
         password_hash = current_app.auth_backend.get_password_hash(username)
-        g.user = username
         return (
             False if password_hash is None else check_password_hash(password_hash, password)
         )
