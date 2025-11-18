@@ -1562,3 +1562,9 @@ def test_get_objects_match_type_spec_version(backend):
     assert obj['objects'][0]['type'] == "indicator"
     assert obj['objects'][0]['id'] == object_id
     assert obj['objects'][0]['spec_version'] == "2.0"
+
+
+def test_healthcheck(backend):
+    r = backend.client.get(test.HEALTHCHECK_EP)
+    assert r.status_code == 200
+    assert r.json == {"pong": True}
