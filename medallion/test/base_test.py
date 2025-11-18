@@ -3,13 +3,11 @@ import os
 
 from pymongo import MongoClient
 
-from medallion import (
-    AuthenticationMiddleware, connect_to_backend, register_blueprints,
-    set_config
-)
+from medallion import connect_to_backend, register_blueprints, set_config
 from medallion.common import (
     APPLICATION_INSTANCE, get_application_instance_config_values
 )
+from medallion.middleware.auth import AuthenticationMiddleware
 
 
 class TaxiiTest():
