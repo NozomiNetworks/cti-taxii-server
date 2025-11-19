@@ -137,15 +137,18 @@ class TaxiiTest():
                 },
                 {
                     "_id": "user1",
-                    "password": "pbkdf2:sha256:150000$TVpGAgEI$dd391524abb0d9107ff5949ef512c150523c388cfa6490d8556d604f90de329e"
+                    "password": "pbkdf2:sha256:150000$TVpGAgEI$dd391524abb0d9107ff5949ef512c150523c388cfa6490d8556d604f90de329e",
+                    "license": "nozomi"
                 },
                 {
                     "_id": "user2",
-                    "password": "pbkdf2:sha256:150000$CUo7l9Vz$3ff2da22dcb84c9ba64e2df4d1ee9f7061c1da4f8506618f53457f615178e3f3"
+                    "password": "pbkdf2:sha256:150000$CUo7l9Vz$3ff2da22dcb84c9ba64e2df4d1ee9f7061c1da4f8506618f53457f615178e3f3",
+                    "license": "mandiant"
                 },
                 {
                     "_id": "nozominetworks",
-                    "password": "pbkdf2:sha256:1000000$WMhyS14B$67163a08284f6f75eb254a21322425e1f7f91a121357679b0252f076172e43f0"
+                    "password": "pbkdf2:sha256:1000000$WMhyS14B$67163a08284f6f75eb254a21322425e1f7f91a121357679b0252f076172e43f0",
+                    "is_admin": True
                 }
             ])
         else:
@@ -164,6 +167,16 @@ class TaxiiTest():
             "Content-Type": "application/taxii+json;version=2.1",
             "Accept": "application/taxii+json;version=2.1",
             'Authorization': 'Basic bm96b21pbmV0d29ya3M6dGVzdA=='  # nozominetworks:test
+        }
+        self.test_user_nozomi_license_headers = {
+            "Content-Type": "application/taxii+json;version=2.1",
+            "Accept": "application/taxii+json;version=2.1",
+            'Authorization': 'Basic dXNlcjE6UGFzc3dvcmQx'  # user1:Password1
+        }
+        self.test_user_mandiant_license_headers = {
+            "Content-Type": "application/taxii+json;version=2.1",
+            "Accept": "application/taxii+json;version=2.1",
+            'Authorization': 'Basic dXNlcjI6UGFzc3dvcmQy'  # user2:Password2
         }
 
     def tearDown(self):

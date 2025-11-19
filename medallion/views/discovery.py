@@ -1,7 +1,8 @@
 from flask import Blueprint, Response, current_app, json
 
-from . import MEDIA_TYPE_TAXII_V21, validate_version_parameter_in_accept_header
+from . import validate_version_parameter_in_accept_header
 from .. import auth
+from ..common import MEDIA_TYPE_TAXII_V21
 from ..exceptions import ProcessingError
 
 discovery_bp = Blueprint("discovery", __name__)

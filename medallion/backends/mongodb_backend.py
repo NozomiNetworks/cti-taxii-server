@@ -244,8 +244,19 @@ class MongoBackend(Backend):
 
         api_root_db = self.client[api_root]
         collection_info = api_root_db["collections"]
-        info = collection_info.find_one({"id": collection_id}, {"_id": 0})
+        info = collection_info.find_one({"id": collection_id}, {"_id": 0, "license": 0})
         return info
+
+    def get_collection_license(self, api_root: str, collection_id: str) -> str | None:
+        if api_root not in self.client.list_database_names():
+            return None  # must return None, so 404 is raised
+
+        api_root_db = self.client[api_root]
+        collection_info = api_root_db["collections"]
+        if (info := collection_info.find_one({"id": collection_id})) is None:
+            return None
+
+        return info["license"]
 
     @catch_mongodb_error
     def get_object_manifest(self, api_root, collection_id, filter_args, allowed_filters, limit):

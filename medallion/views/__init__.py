@@ -1,11 +1,12 @@
+from functools import wraps
 import re
 
-from flask import request
+from flask import Response, request
 
+from medallion.auth_service import AuthService
+
+from .. import MEDIA_TYPE_TAXII_V21, auth
 from ..exceptions import ProcessingError
-
-MEDIA_TYPE_TAXII_ANY = "application/taxii+json"
-MEDIA_TYPE_TAXII_V21 = "{media};version=2.1".format(media=MEDIA_TYPE_TAXII_ANY)
 
 
 def validate_version_parameter_in_accept_header():
@@ -25,3 +26,20 @@ def validate_version_parameter_in_accept_header():
 
     if found is False:
         raise ProcessingError("Media type in the Accept header is invalid or not found", 406)
+
+
+def validate_user_permission_on_collection(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        auth_service = AuthService(request, auth.current_user())
+
+        if not auth_service.can_user_access_collection():
+            return Response(
+                response="Unauthorized Access",
+                status=401,
+                mimetype=MEDIA_TYPE_TAXII_V21,
+            )
+
+        return f(*args, **kwargs)
+
+    return decorated_function

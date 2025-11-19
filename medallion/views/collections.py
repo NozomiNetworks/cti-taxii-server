@@ -1,7 +1,11 @@
 from flask import Blueprint, Response, current_app, json
 
-from . import MEDIA_TYPE_TAXII_V21, validate_version_parameter_in_accept_header
+from . import (
+    validate_user_permission_on_collection,
+    validate_version_parameter_in_accept_header
+)
 from .. import auth
+from ..common import MEDIA_TYPE_TAXII_V21
 from .discovery import api_root_exists
 from .objects import collection_exists
 
@@ -37,6 +41,7 @@ def get_collections(api_root):
 
 @collections_bp.route("/<string:api_root>/collections/<string:collection_id>/", methods=["GET"])
 @auth.login_required
+@validate_user_permission_on_collection
 def get_collection(api_root, collection_id):
     """
     Defines TAXII API - Collections:

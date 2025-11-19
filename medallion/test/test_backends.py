@@ -5,9 +5,8 @@ import tempfile
 
 import pytest
 
-from medallion import common, exceptions, test
+from medallion import MEDIA_TYPE_TAXII_V21, common, exceptions, test
 from medallion.backends.base import SECONDS_IN_24_HOURS
-from medallion.views import MEDIA_TYPE_TAXII_V21
 
 from .base_test import TaxiiTest
 
@@ -100,12 +99,13 @@ def test_get_collections(backend):
     collections_metadata = sorted(collections_metadata["collections"], key=lambda x: x["id"])
     collection_ids = [cm["id"] for cm in collections_metadata]
 
-    assert len(collection_ids) == 5
+    assert len(collection_ids) == 6
     assert "52892447-4d7e-4f70-b94d-d7f22742ff63" in collection_ids
     assert "91a7b528-80eb-42ed-a74d-c6fbd5a26116" in collection_ids
     assert "64993447-4d7e-4f70-b94d-d7f33742ee63" in collection_ids
     assert "472c94ae-3113-4e3e-a4dd-a9f4ac7471d4" in collection_ids
     assert "365fed99-08fa-fdcd-a1b3-fb247eb41d01" in collection_ids
+    assert "54993447-4d7e-4f70-b94d-d7f33742ee63" in collection_ids
 
 
 def test_get_objects(backend):
@@ -1568,3 +1568,168 @@ def test_healthcheck(backend):
     r = backend.client.get(test.HEALTHCHECK_EP)
     assert r.status_code == 200
     assert r.json == {"pong": True}
+
+
+def test_nozomi_license_normal_user(backend, collection_fixture):
+    r = backend.client.get(
+        test.GET_COLLECTION_EP,
+        headers=backend.test_user_nozomi_license_headers,
+    )
+    assert r.status_code == 200
+    assert r.json == collection_fixture
+
+
+def test_mandiant_license_normal_user(backend):
+    r = backend.client.get(
+        test.MANDIANT_COLLECTION_EP,
+        headers=backend.test_user_nozomi_license_headers,
+    )
+    assert r.status_code == 401
+    assert r.text == "Unauthorized Access"
+
+
+def test_mandiant_objects_license_normal_user(backend):
+    r = backend.client.get(
+        test.MANDIANT_COLLECTION_EP + "objects/",
+        headers=backend.test_user_nozomi_license_headers,
+    )
+    assert r.status_code == 401
+    assert r.text == "Unauthorized Access"
+
+
+def test_mandiant_manifests_license_normal_user(backend):
+    r = backend.client.get(
+        test.MANDIANT_COLLECTION_EP + "manifest/",
+        headers=backend.test_user_nozomi_license_headers,
+    )
+    assert r.status_code == 401
+    assert r.text == "Unauthorized Access"
+
+
+def test_mandiant_object_license_normal_user(backend):
+    r = backend.client.get(
+        test.MANDIANT_COLLECTION_EP + "objects/relationship--1f9a9aa9-108a-4333-83e2-4fb25add0463/",
+        headers=backend.test_user_nozomi_license_headers,
+    )
+    assert r.status_code == 401
+    assert r.text == "Unauthorized Access"
+
+
+def test_mandiant_object_versions_license_normal_user(backend, mandiant_collection_fixture):
+    r = backend.client.get(
+        test.MANDIANT_COLLECTION_EP + "objects/relationship--1f9a9aa9-108a-4333-83e2-4fb25add0463/versions/",
+        headers=backend.test_user_nozomi_license_headers,
+    )
+    assert r.status_code == 401
+
+
+def test_nozomi_license_mandiant_user(backend, collection_fixture):
+    r = backend.client.get(
+        test.GET_COLLECTION_EP,
+        headers=backend.test_user_mandiant_license_headers,
+    )
+    assert r.status_code == 200
+    assert r.json == collection_fixture
+
+
+def test_mandiant_object_license_mandiant_user(backend, mandiant_collection_fixture):
+    r = backend.client.get(
+        test.MANDIANT_COLLECTION_EP + "objects/relationship--1f9a9aa9-108a-4333-83e2-4fb25add0463/",
+        headers=backend.test_user_mandiant_license_headers,
+    )
+    assert r.status_code == 200
+
+
+def test_mandiant_manifests_license_mandiant_user(backend, mandiant_collection_fixture):
+    r = backend.client.get(
+        test.MANDIANT_COLLECTION_EP + "manifest/",
+        headers=backend.test_user_mandiant_license_headers,
+    )
+    assert r.status_code == 200
+
+
+def test_mandiant_license_mandiant_user(backend, mandiant_collection_fixture):
+    r = backend.client.get(
+        test.MANDIANT_COLLECTION_EP,
+        headers=backend.test_user_mandiant_license_headers,
+    )
+    assert r.status_code == 200
+    assert r.json == mandiant_collection_fixture
+
+
+def test_mandiant_objects_license_mandiant_user(backend, mandiant_collection_fixture):
+    r = backend.client.get(
+        test.MANDIANT_COLLECTION_EP + "objects/",
+        headers=backend.test_user_mandiant_license_headers,
+    )
+    assert r.status_code == 200
+
+
+def test_mandiant_object_versions_license_mandiant_user(backend, mandiant_collection_fixture):
+    r = backend.client.get(
+        test.MANDIANT_COLLECTION_EP + "objects/relationship--1f9a9aa9-108a-4333-83e2-4fb25add0463/versions/",
+        headers=backend.test_user_mandiant_license_headers,
+    )
+    assert r.status_code == 200
+
+
+def test_mandiant_license_nozomi_user(backend, mandiant_collection_fixture):
+    r = backend.client.get(
+        test.MANDIANT_COLLECTION_EP,
+        headers=backend.nozomi_auth_headers,
+    )
+    assert r.status_code == 200
+    assert r.json == mandiant_collection_fixture
+
+
+def test_mandiant_object_license_nozomi_user(backend, mandiant_collection_fixture):
+    r = backend.client.get(
+        test.MANDIANT_COLLECTION_EP + "objects/relationship--1f9a9aa9-108a-4333-83e2-4fb25add0463/",
+        headers=backend.nozomi_auth_headers,
+    )
+    assert r.status_code == 200
+
+
+def test_mandiant_object_versions_license_nozomi_user(backend, mandiant_collection_fixture):
+    r = backend.client.get(
+        test.MANDIANT_COLLECTION_EP + "objects/relationship--1f9a9aa9-108a-4333-83e2-4fb25add0463/versions/",
+        headers=backend.nozomi_auth_headers,
+    )
+    assert r.status_code == 200
+
+
+def test_mandiant_manifests_license_nozomi_user(backend, mandiant_collection_fixture):
+    r = backend.client.get(
+        test.MANDIANT_COLLECTION_EP + "manifest/",
+        headers=backend.nozomi_auth_headers,
+    )
+    assert r.status_code == 200
+
+
+@pytest.fixture
+def collection_fixture():
+    return {
+        'can_read': True,
+        'can_write': True,
+        'description': 'This data collection is for collecting high value IOCs',
+        'id': '91a7b528-80eb-42ed-a74d-c6fbd5a26116',
+        'media_types': [
+            'application/stix+json;version=2.0',
+            'application/stix+json;version=2.1',
+        ],
+        'title': 'High Value Indicator Collection',
+    }
+
+
+@pytest.fixture
+def mandiant_collection_fixture():
+    return {
+        'can_read': True,
+        'can_write': False,
+        'description': 'This data collection is for collecting Mandiant IOCs',
+        'id': '54993447-4d7e-4f70-b94d-d7f33742ee63',
+        'media_types': [
+            'application/stix+json;version=2.1',
+        ],
+        'title': 'Mandiant Indicators',
+    }
