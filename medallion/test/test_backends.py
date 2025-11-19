@@ -90,24 +90,6 @@ def test_get_status(backend):
     assert "pendings" in status_data
 
 
-def test_get_collections(backend):
-    r = backend.client.get(test.COLLECTIONS_EP, headers=backend.nozomi_auth_headers)
-
-    assert r.status_code == 200
-    assert r.content_type == MEDIA_TYPE_TAXII_V21
-    collections_metadata = r.json
-    collections_metadata = sorted(collections_metadata["collections"], key=lambda x: x["id"])
-    collection_ids = [cm["id"] for cm in collections_metadata]
-
-    assert len(collection_ids) == 6
-    assert "52892447-4d7e-4f70-b94d-d7f22742ff63" in collection_ids
-    assert "91a7b528-80eb-42ed-a74d-c6fbd5a26116" in collection_ids
-    assert "64993447-4d7e-4f70-b94d-d7f33742ee63" in collection_ids
-    assert "472c94ae-3113-4e3e-a4dd-a9f4ac7471d4" in collection_ids
-    assert "365fed99-08fa-fdcd-a1b3-fb247eb41d01" in collection_ids
-    assert "54993447-4d7e-4f70-b94d-d7f33742ee63" in collection_ids
-
-
 def test_get_objects(backend):
 
     r = backend.client.get(
@@ -1615,6 +1597,24 @@ def test_mandiant_object_license_normal_user(backend):
     assert r.text == "Unauthorized Access"
 
 
+def test_get_collections_normal_user(backend):
+    r = backend.client.get(test.COLLECTIONS_EP, headers=backend.test_user_nozomi_license_headers)
+
+    assert r.status_code == 200
+    assert r.content_type == MEDIA_TYPE_TAXII_V21
+    collections_metadata = r.json
+    collections_metadata = sorted(collections_metadata["collections"], key=lambda x: x["id"])
+    collection_ids = [cm["id"] for cm in collections_metadata]
+
+    assert len(collection_ids) == 5
+    assert "52892447-4d7e-4f70-b94d-d7f22742ff63" in collection_ids
+    assert "91a7b528-80eb-42ed-a74d-c6fbd5a26116" in collection_ids
+    assert "64993447-4d7e-4f70-b94d-d7f33742ee63" in collection_ids
+    assert "472c94ae-3113-4e3e-a4dd-a9f4ac7471d4" in collection_ids
+    assert "365fed99-08fa-fdcd-a1b3-fb247eb41d01" in collection_ids
+    assert all("license" not in collection for collection in collections_metadata)
+
+
 def test_mandiant_object_versions_license_normal_user(backend, mandiant_collection_fixture):
     r = backend.client.get(
         test.MANDIANT_COLLECTION_EP + "objects/relationship--1f9a9aa9-108a-4333-83e2-4fb25add0463/versions/",
@@ -1673,6 +1673,25 @@ def test_mandiant_object_versions_license_mandiant_user(backend, mandiant_collec
     assert r.status_code == 200
 
 
+def test_get_collections_mandiant_user(backend):
+    r = backend.client.get(test.COLLECTIONS_EP, headers=backend.test_user_mandiant_license_headers)
+
+    assert r.status_code == 200
+    assert r.content_type == MEDIA_TYPE_TAXII_V21
+    collections_metadata = r.json
+    collections_metadata = sorted(collections_metadata["collections"], key=lambda x: x["id"])
+    collection_ids = [cm["id"] for cm in collections_metadata]
+
+    assert len(collection_ids) == 6
+    assert "52892447-4d7e-4f70-b94d-d7f22742ff63" in collection_ids
+    assert "91a7b528-80eb-42ed-a74d-c6fbd5a26116" in collection_ids
+    assert "64993447-4d7e-4f70-b94d-d7f33742ee63" in collection_ids
+    assert "472c94ae-3113-4e3e-a4dd-a9f4ac7471d4" in collection_ids
+    assert "365fed99-08fa-fdcd-a1b3-fb247eb41d01" in collection_ids
+    assert "54993447-4d7e-4f70-b94d-d7f33742ee63" in collection_ids
+    assert all("license" not in collection for collection in collections_metadata)
+
+
 def test_mandiant_license_nozomi_user(backend, mandiant_collection_fixture):
     r = backend.client.get(
         test.MANDIANT_COLLECTION_EP,
@@ -1704,6 +1723,25 @@ def test_mandiant_manifests_license_nozomi_user(backend, mandiant_collection_fix
         headers=backend.nozomi_auth_headers,
     )
     assert r.status_code == 200
+
+
+def test_get_collections_nozomi_user(backend):
+    r = backend.client.get(test.COLLECTIONS_EP, headers=backend.nozomi_auth_headers)
+
+    assert r.status_code == 200
+    assert r.content_type == MEDIA_TYPE_TAXII_V21
+    collections_metadata = r.json
+    collections_metadata = sorted(collections_metadata["collections"], key=lambda x: x["id"])
+    collection_ids = [cm["id"] for cm in collections_metadata]
+
+    assert len(collection_ids) == 6
+    assert "52892447-4d7e-4f70-b94d-d7f22742ff63" in collection_ids
+    assert "91a7b528-80eb-42ed-a74d-c6fbd5a26116" in collection_ids
+    assert "64993447-4d7e-4f70-b94d-d7f33742ee63" in collection_ids
+    assert "472c94ae-3113-4e3e-a4dd-a9f4ac7471d4" in collection_ids
+    assert "365fed99-08fa-fdcd-a1b3-fb247eb41d01" in collection_ids
+    assert "54993447-4d7e-4f70-b94d-d7f33742ee63" in collection_ids
+    assert all("license" not in collection for collection in collections_metadata)
 
 
 @pytest.fixture

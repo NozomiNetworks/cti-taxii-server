@@ -5,7 +5,9 @@ from . import (
     validate_version_parameter_in_accept_header
 )
 from .. import auth
+from ..auth_service import AuthService
 from ..common import MEDIA_TYPE_TAXII_V21
+from ..license_service import LicenseService
 from .discovery import api_root_exists
 from .objects import collection_exists
 
@@ -32,6 +34,15 @@ def get_collections(api_root):
     validate_version_parameter_in_accept_header()
     api_root_exists(api_root)
     collections = current_app.medallion_backend.get_collections(api_root)
+
+    if AuthService.is_user_admin(auth.current_user()):
+        for collection in collections["collections"]:
+            del collection["license"]
+    else:
+        collections["collections"] = LicenseService.remove_not_licensed_collection_to_user(
+            AuthService.get_current_user_license(auth.current_user()), collections["collections"]
+        )
+
     return Response(
         response=json.dumps(collections),
         status=200,
