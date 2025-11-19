@@ -1,6 +1,7 @@
 from requests import Request
 
 from medallion import APPLICATION_INSTANCE
+from medallion.license_service import LicenseService
 
 
 class AuthService:
@@ -34,6 +35,18 @@ class AuthService:
 
     def _is_healthcheck_path(self, rq: Request) -> bool:
         return rq.path == '/ping'
+
+    @classmethod
+    def get_current_user_license(cls, username: str) -> str:
+        """Get the license associated with the user.
+
+        If the auth backend is not set, it returns the best license available.
+        Otherwise, it queries the auth backend for user details.
+        """
+        if not hasattr(APPLICATION_INSTANCE, "auth_backend"):
+            return LicenseService.get_max_privileged_license()
+
+        return APPLICATION_INSTANCE.auth_backend.get_user_by_username(username).get("license", None)
 
     @classmethod
     def is_user_admin(cls, username: str) -> bool:
