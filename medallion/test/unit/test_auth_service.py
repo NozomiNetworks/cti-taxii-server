@@ -16,20 +16,23 @@ class TestAuthService:
         rq.path = environ['PATH_INFO']
         assert auth_middleware._is_healthcheck_path(rq) is False
 
-    def test_auth_backend_is_set(self, auth_middleware):
-        with patch("medallion.auth_service.APPLICATION_INSTANCE") as app_instance:
-            app_instance.auth_backend = MagicMock()
-            assert auth_middleware._auth_backend_is_set() is True
+    def test_is_user_admin_auth_backend_not_set(self, auth_middleware):
+        assert auth_middleware.is_user_admin('admin') is False
+        assert auth_middleware.is_user_admin('mandiant') is False
+        assert auth_middleware.is_user_admin('nozominetworks') is True
 
+    def test_is_user_admin_auth_backend_set(self, auth_middleware):
         with patch("medallion.auth_service.APPLICATION_INSTANCE") as app_instance:
-            if hasattr(app_instance, "auth_backend"):
-                delattr(app_instance, "auth_backend")
-            assert auth_middleware._auth_backend_is_set() is False
+            mock_auth_backend = MagicMock()
+            mock_auth_backend.get_user_by_username.side_effect = lambda username: {
+                'nozominetworks': {'is_admin': True},
+                'user': {'is_admin': False}
+            }.get(username, {})
+            app_instance.auth_backend = mock_auth_backend
 
-    def test_is_user_admin(self, auth_middleware):
-        assert auth_middleware._is_user_admin('admin') is False
-        assert auth_middleware._is_user_admin('mandiant') is False
-        assert auth_middleware._is_user_admin('nozominetworks') is True
+            assert auth_middleware.is_user_admin('admin') is False
+            assert auth_middleware.is_user_admin('user') is False
+            assert auth_middleware.is_user_admin('nozominetworks') is True
 
     def test_extract_collection_id(self, auth_middleware):
         rq = MagicMock()

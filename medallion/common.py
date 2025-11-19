@@ -8,7 +8,6 @@ import pytz
 from six import iteritems
 
 APPLICATION_INSTANCE = Flask("medallion")
-ADMIN_USER = 'nozominetworks'
 MEDIA_TYPE_TAXII_ANY = "application/taxii+json"
 MEDIA_TYPE_TAXII_V21 = "{media};version=2.1".format(media=MEDIA_TYPE_TAXII_ANY)
 

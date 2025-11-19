@@ -1,10 +1,11 @@
 from requests import Request
 
 from medallion import APPLICATION_INSTANCE
-from medallion.common import ADMIN_USER
 
 
 class AuthService:
+    ADMIN_USER = 'nozominetworks'
+
     def __init__(self, rq: Request, current_user: str):
         self.rq = rq
         self._current_user = current_user
@@ -15,14 +16,14 @@ class AuthService:
             return True
 
         # If the user is admin or the backend is not set (running with no MongoDB), allow the request
-        if self._is_user_admin(self._current_user) or not self._auth_backend_is_set():
+        if self.is_user_admin(self._current_user):
             return True
 
         if (
                 (collection := self._extract_collection_id(self.rq)) is None or
                 (api_root := self._extract_api_root(self.rq)) is None
         ):
-            return True
+            return False
 
         collection_license = APPLICATION_INSTANCE.medallion_backend.get_collection_license(api_root, collection)
 
@@ -34,11 +35,17 @@ class AuthService:
     def _is_healthcheck_path(self, rq: Request) -> bool:
         return rq.path == '/ping'
 
-    def _auth_backend_is_set(self) -> bool:
-        return hasattr(APPLICATION_INSTANCE, "auth_backend")
+    @classmethod
+    def is_user_admin(cls, username: str) -> bool:
+        """Check if the user has admin privileges.
 
-    def _is_user_admin(self, username: str) -> bool:
-        return username == ADMIN_USER
+        If the auth backend is not set, it checks the username only.
+        Otherwise, it queries the auth backend for user details.
+        """
+        if not hasattr(APPLICATION_INSTANCE, "auth_backend"):
+            return username == cls.ADMIN_USER
+
+        return APPLICATION_INSTANCE.auth_backend.get_user_by_username(username).get("is_admin", False)
 
     def _extract_collection_id(self, rq: Request) -> str | None:
         """Extract collection_id from URL path.

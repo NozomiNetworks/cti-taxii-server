@@ -147,7 +147,8 @@ class TaxiiTest():
                 },
                 {
                     "_id": "nozominetworks",
-                    "password": "pbkdf2:sha256:1000000$WMhyS14B$67163a08284f6f75eb254a21322425e1f7f91a121357679b0252f076172e43f0"
+                    "password": "pbkdf2:sha256:1000000$WMhyS14B$67163a08284f6f75eb254a21322425e1f7f91a121357679b0252f076172e43f0",
+                    "is_admin": True
                 }
             ])
         else:

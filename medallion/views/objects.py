@@ -8,7 +8,8 @@ from . import (
     validate_version_parameter_in_accept_header
 )
 from .. import auth
-from ..common import ADMIN_USER, MEDIA_TYPE_TAXII_V21, get_timestamp
+from ..auth_service import AuthService
+from ..common import MEDIA_TYPE_TAXII_V21, get_timestamp
 from ..exceptions import ProcessingError
 from .discovery import api_root_exists
 
@@ -28,7 +29,7 @@ def permission_to_write(api_root, collection_id, current_user):
     collection_info = current_app.medallion_backend.get_collection(
         api_root, collection_id
     )
-    if collection_info["can_write"] is False or current_user != ADMIN_USER:
+    if collection_info["can_write"] is False or not AuthService.is_user_admin(current_user):
         raise ProcessingError(
             "Forbidden to write collection '{}'".format(collection_id), 403
         )
@@ -41,7 +42,7 @@ def permission_to_read_and_write(api_root, collection_id, current_user):
     )
     if collection_info["can_read"] is False and collection_info["can_write"] is False:
         raise ProcessingError("Collection '{}' not found".format(collection_id), 404)
-    if collection_info["can_write"] is False or current_user != ADMIN_USER:
+    if collection_info["can_write"] is False or not AuthService.is_user_admin(current_user):
         raise ProcessingError(
             "Forbidden to write collection '{}'".format(collection_id), 403
         )
