@@ -317,8 +317,26 @@
                 "media_types": [
                     "application/stix+json;version=2.1"
                 ],
-                "objects": [],
-                "manifest": [],
+                "objects": [
+                    {
+                        "created": "2014-05-08T09:00:00.000Z",
+                        "modified": "2014-05-08T09:00:00.000Z",
+                        "id": "relationship--1f9a9aa9-108a-4333-83e2-4fb25add0463",
+                        "relationship_type": "indicates",
+                        "source_ref": "indicator--cd981c25-8042-4166-8945-51178443bdac",
+                        "spec_version": "2.1",
+                        "target_ref": "malware--c0931cc6-c75e-47e5-9036-78fabc95d4ec",
+                        "type": "relationship"
+                    }
+                ],
+                "manifest": [
+                    {
+                        "date_added": "2014-05-08T09:00:00.000000Z",
+                        "id": "relationship--1f9a9aa9-108a-4333-83e2-4fb25add0463",
+                        "media_type": "application/stix+json;version=2.1",
+                        "version": "2014-05-08T09:00:00.000Z"
+                    }
+                ],
                 "license": "mandiant"
             }
         ]
