@@ -1,11 +1,12 @@
-import re
 from functools import wraps
+import re
 
-from flask import request, Response
+from flask import Response, request
 
-from .. import auth, MEDIA_TYPE_TAXII_V21
-from ..exceptions import ProcessingError
 from medallion.auth_service import AuthService
+
+from .. import MEDIA_TYPE_TAXII_V21, auth
+from ..exceptions import ProcessingError
 
 
 def validate_version_parameter_in_accept_header():

@@ -1,6 +1,9 @@
 from flask import Blueprint, Response, current_app, json, request
 
-from . import validate_version_parameter_in_accept_header, validate_user_permission_on_collection
+from . import (
+    validate_user_permission_on_collection,
+    validate_version_parameter_in_accept_header
+)
 from .. import auth
 from ..common import MEDIA_TYPE_TAXII_V21
 from .discovery import api_root_exists
