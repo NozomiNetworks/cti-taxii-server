@@ -4,12 +4,12 @@ from . import (
     validate_user_permission_on_collection,
     validate_version_parameter_in_accept_header
 )
-from .discovery import api_root_exists
-from .objects import collection_exists
 from .. import auth
 from ..auth_service import AuthService
 from ..common import MEDIA_TYPE_TAXII_V21
 from ..license_service import LicenseService
+from .discovery import api_root_exists
+from .objects import collection_exists
 
 collections_bp = Blueprint("collections", __name__)
 
