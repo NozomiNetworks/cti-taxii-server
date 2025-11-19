@@ -1615,6 +1615,14 @@ def test_mandiant_object_license_normal_user(backend):
     assert r.text == "Unauthorized Access"
 
 
+def test_mandiant_object_versions_license_normal_user(backend, mandiant_collection_fixture):
+    r = backend.client.get(
+        test.MANDIANT_COLLECTION_EP + "objects/relationship--1f9a9aa9-108a-4333-83e2-4fb25add0463/versions/",
+        headers=backend.test_user_nozomi_license_headers,
+    )
+    assert r.status_code == 401
+
+
 def test_nozomi_license_mandiant_user(backend, collection_fixture):
     r = backend.client.get(
         test.GET_COLLECTION_EP,
@@ -1622,15 +1630,6 @@ def test_nozomi_license_mandiant_user(backend, collection_fixture):
     )
     assert r.status_code == 200
     assert r.json == collection_fixture
-
-
-def test_mandiant_license_nozomi_user(backend, mandiant_collection_fixture):
-    r = backend.client.get(
-        test.MANDIANT_COLLECTION_EP,
-        headers=backend.test_user_mandiant_license_headers,
-    )
-    assert r.status_code == 200
-    assert r.json == mandiant_collection_fixture
 
 
 def test_mandiant_object_license_mandiant_user(backend, mandiant_collection_fixture):
@@ -1666,10 +1665,35 @@ def test_mandiant_objects_license_mandiant_user(backend, mandiant_collection_fix
     assert r.status_code == 200
 
 
+def test_mandiant_object_versions_license_mandiant_user(backend, mandiant_collection_fixture):
+    r = backend.client.get(
+        test.MANDIANT_COLLECTION_EP + "objects/relationship--1f9a9aa9-108a-4333-83e2-4fb25add0463/versions/",
+        headers=backend.test_user_mandiant_license_headers,
+    )
+    assert r.status_code == 200
+
+
+def test_mandiant_license_nozomi_user(backend, mandiant_collection_fixture):
+    r = backend.client.get(
+        test.MANDIANT_COLLECTION_EP,
+        headers=backend.nozomi_auth_headers,
+    )
+    assert r.status_code == 200
+    assert r.json == mandiant_collection_fixture
+
+
 def test_mandiant_object_license_nozomi_user(backend, mandiant_collection_fixture):
     r = backend.client.get(
         test.MANDIANT_COLLECTION_EP + "objects/relationship--1f9a9aa9-108a-4333-83e2-4fb25add0463/",
-        headers=backend.test_user_mandiant_license_headers,
+        headers=backend.nozomi_auth_headers,
+    )
+    assert r.status_code == 200
+
+
+def test_mandiant_object_versions_license_nozomi_user(backend, mandiant_collection_fixture):
+    r = backend.client.get(
+        test.MANDIANT_COLLECTION_EP + "objects/relationship--1f9a9aa9-108a-4333-83e2-4fb25add0463/versions/",
+        headers=backend.nozomi_auth_headers,
     )
     assert r.status_code == 200
 
@@ -1677,7 +1701,7 @@ def test_mandiant_object_license_nozomi_user(backend, mandiant_collection_fixtur
 def test_mandiant_manifests_license_nozomi_user(backend, mandiant_collection_fixture):
     r = backend.client.get(
         test.MANDIANT_COLLECTION_EP + "manifest/",
-        headers=backend.test_user_mandiant_license_headers,
+        headers=backend.nozomi_auth_headers,
     )
     assert r.status_code == 200
 

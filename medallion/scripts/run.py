@@ -11,7 +11,6 @@ from medallion.common import (
     APPLICATION_INSTANCE, get_application_instance_config_values
 )
 import medallion.config
-from medallion.middleware.auth import AuthenticationMiddleware
 
 log = logging.getLogger("medallion")
 
@@ -136,11 +135,6 @@ def main():
         get_application_instance_config_values(APPLICATION_INSTANCE, "backend"))
     if (not APPLICATION_INSTANCE.blueprints):
         register_blueprints(APPLICATION_INSTANCE)
-
-    APPLICATION_INSTANCE.wsgi_app = AuthenticationMiddleware(
-        APPLICATION_INSTANCE,
-        APPLICATION_INSTANCE.wsgi_app
-    )
 
     if not medallion_args.conf_check:
         APPLICATION_INSTANCE.run(
