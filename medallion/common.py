@@ -183,6 +183,7 @@ def generate_status(
         "id": str(uuid.uuid4()),
         "status": status,
         "request_timestamp": request_time,
+        "request_timestamp_data": string_to_datetime(request_time),
         "total_count": succeeded + failed + pending,
         "success_count": succeeded,
         "failure_count": failed,
