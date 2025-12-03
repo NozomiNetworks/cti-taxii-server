@@ -1771,3 +1771,168 @@ def mandiant_collection_fixture():
         ],
         'title': 'Mandiant Indicators',
     }
+
+
+def test_get_users_not_admin_user(backend):
+    r = backend.client.get(
+        test.USERS_EP,
+        headers=backend.test_user_nozomi_license_headers,
+    )
+    assert r.status_code == 403
+    assert r.text == "Endpoint forbidden"
+
+
+def test_get_users_admin_user(backend):
+    r = backend.client.get(
+        test.USERS_EP,
+        headers=backend.nozomi_auth_headers,
+    )
+    assert r.status_code == 200
+    assert r.json == [
+        {
+            '_id': 'admin',
+            'company_name': None,
+            'contact_name': None,
+            'created': None,
+            'is_admin': None,
+            'license': None,
+            'updated': None,
+        },
+        {
+            '_id': 'user1',
+            'company_name': None,
+            'contact_name': None,
+            'created': None,
+            'is_admin': None,
+            'license': 'nozomi',
+            'updated': None,
+        },
+        {
+            '_id': 'user2',
+            'company_name': None,
+            'contact_name': None,
+            'created': None,
+            'is_admin': None,
+            'license': 'mandiant',
+            'updated': None,
+        },
+        {
+            '_id': 'nozominetworks',
+            'company_name': None,
+            'contact_name': None,
+            'created': None,
+            'is_admin': True,
+            'license': None,
+            'updated': None,
+        },
+    ]
+
+
+def test_create_user_not_admin_user(backend):
+    r = backend.client.post(
+        test.USERS_EP,
+        data=json.dumps({
+            "username": "newuser",
+            "password": "newpassword",
+            "is_admin": False,
+            "license": "nozomi"
+        }),
+        headers=backend.test_user_nozomi_license_headers,
+    )
+    assert r.status_code == 403
+    assert r.text == "Endpoint forbidden"
+
+
+def test_create_user_admin_user_invalid_json(backend, nozomi_json_content_headers):
+    r = backend.client.post(
+        test.USERS_EP,
+        data="this is not json",
+        headers=nozomi_json_content_headers,
+    )
+    assert r.status_code == 400
+
+
+def test_create_user_admin_user_no_valid_password(backend, nozomi_json_content_headers):
+    r = backend.client.post(
+        test.USERS_EP,
+        data=json.dumps({
+            "_id": "newuser",
+            "is_admin": False,
+            "license": "nozomi"
+        }),
+        headers=nozomi_json_content_headers,
+    )
+    assert r.status_code == 400
+    assert r.json == {"error": 'Missing both "password" and "password_hash" in request body.'}
+
+    r = backend.client.post(
+        test.USERS_EP,
+        data=json.dumps({
+            "_id": "newuser",
+            "password": "",
+            "password_hash": "",
+            "is_admin": False
+        }),
+        headers=nozomi_json_content_headers,
+    )
+    assert r.status_code == 400
+    assert r.json == {"error": 'Provide either "password" or "password_hash", not both.'}
+
+
+def test_create_user_admin_user_no__id(backend, nozomi_json_content_headers):
+    r = backend.client.post(
+        test.USERS_EP,
+        data=json.dumps({
+            "password": "newuser",
+            "is_admin": False,
+            "license": "nozomi"
+        }),
+        headers=nozomi_json_content_headers,
+    )
+    assert r.status_code == 400
+    assert r.json == {"error": 'Missing required field "_id" in request body.'}
+
+
+def test_create_user_admin_user_existing_user(backend, nozomi_json_content_headers):
+    r = backend.client.post(
+        test.USERS_EP,
+        data=json.dumps({
+            "_id": "user1",
+            "password": "user1",
+            "is_admin": False,
+            "license": "nozomi"
+        }),
+        headers=nozomi_json_content_headers,
+    )
+    assert r.status_code == 409
+    assert r.json == {"error": 'User with _id "user1" already exists.'}
+
+
+def test_create_user_admin_user_success_partial_fields(backend, nozomi_json_content_headers):
+    r = backend.client.post(
+        test.USERS_EP,
+        data=json.dumps({
+            "_id": "newuser",
+            "password": "newpassword",
+            "is_admin": False,
+            "license": "nozomi"
+        }),
+        headers=nozomi_json_content_headers,
+    )
+    assert r.status_code == 201
+    assert r.json['_id'] == 'newuser'
+    assert r.json['is_admin'] is False
+    assert r.json['license'] == 'nozomi'
+    assert r.json['created'] is not None
+    assert r.json['updated'] is None
+    assert r.json['company_name'] == ''
+    assert r.json['contact_name'] == ''
+
+
+@pytest.fixture
+def nozomi_json_content_headers(backend):
+    return {
+        'Content-Type': 'application/json',
+        "Accept": "application/taxii+json;version=2.1",
+        "Authorization": backend.nozomi_auth_headers["Authorization"],
+    }

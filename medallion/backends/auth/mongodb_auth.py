@@ -34,3 +34,13 @@ class AuthMongodbBackend(AuthBackend):
         db = self.client[self.db_name]
         users = db['users']
         return users.find_one({"_id": username})
+
+    def get_all_users(self) -> list[dict]:
+        db = self.client[self.db_name]
+        users = db['users']
+        return list(users.find({}))
+
+    def add_user(self, user_info: dict):
+        db = self.client[self.db_name]
+        users = db['users']
+        users.insert_one(user_info)
