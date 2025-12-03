@@ -5,7 +5,7 @@ from flask import Response, request
 
 from medallion.auth_service import AuthService
 
-from .. import MEDIA_TYPE_TAXII_V21, auth
+from .. import APPLICATION_INSTANCE, MEDIA_TYPE_TAXII_V21, auth
 from ..exceptions import ProcessingError
 
 
@@ -37,6 +37,36 @@ def validate_user_permission_on_collection(f):
             return Response(
                 response="Unauthorized Access",
                 status=401,
+                mimetype=MEDIA_TYPE_TAXII_V21,
+            )
+
+        return f(*args, **kwargs)
+
+    return decorated_function
+
+
+def admin_only_endpoint(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not AuthService.is_user_admin(auth.current_user()):
+            return Response(
+                response="Unauthorized Access",
+                status=401,
+                mimetype=MEDIA_TYPE_TAXII_V21,
+            )
+
+        return f(*args, **kwargs)
+
+    return decorated_function
+
+
+def available_with_auth_backend_only(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not hasattr(APPLICATION_INSTANCE, "auth_backend"):
+            return Response(
+                response="This endpoint is only available with the MongoDB authentication backend.",
+                status=400,
                 mimetype=MEDIA_TYPE_TAXII_V21,
             )
 
