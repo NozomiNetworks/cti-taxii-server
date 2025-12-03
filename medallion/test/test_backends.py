@@ -1778,8 +1778,8 @@ def test_get_users_not_admin_user(backend):
         test.USERS_EP,
         headers=backend.test_user_nozomi_license_headers,
     )
-    assert r.status_code == 401
-    assert r.text == "Unauthorized Access"
+    assert r.status_code == 403
+    assert r.text == "Endpoint forbidden"
 
 
 def test_get_users_admin_user(backend):
@@ -1839,8 +1839,8 @@ def test_create_user_not_admin_user(backend):
         }),
         headers=backend.test_user_nozomi_license_headers,
     )
-    assert r.status_code == 401
-    assert r.text == "Unauthorized Access"
+    assert r.status_code == 403
+    assert r.text == "Endpoint forbidden"
 
 
 def test_create_user_admin_user_invalid_json(backend, nozomi_json_content_headers):

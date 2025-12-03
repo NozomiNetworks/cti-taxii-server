@@ -51,8 +51,8 @@ def admin_only_endpoint(f):
     def decorated_function(*args, **kwargs):
         if not AuthService.is_user_admin(auth.current_user()):
             return Response(
-                response="Unauthorized Access",
-                status=401,
+                response="Endpoint forbidden",
+                status=403,
                 mimetype=MEDIA_TYPE_TAXII_V21,
             )
 
@@ -68,7 +68,7 @@ def available_with_auth_backend_only(f):
         if not hasattr(APPLICATION_INSTANCE, "auth_backend"):
             return Response(
                 response="This endpoint is only available with the MongoDB authentication backend.",
-                status=400,
+                status=501,
                 mimetype=MEDIA_TYPE_TAXII_V21,
             )
 
