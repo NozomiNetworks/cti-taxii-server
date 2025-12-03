@@ -18,7 +18,7 @@ class AuthBackend(object):
     def can_user_read_collection(self, username: str, collection_license: str) -> bool:
         return LicenseService.can_user_read_collection(self.get_user_by_username(username), collection_license)
 
-    def get_all_users(self):
+    def get_all_users(self) -> list[dict]:
         """Return a list of all users."""
         raise NotImplementedError()
 
@@ -26,7 +26,8 @@ class AuthBackend(object):
         """Add a new user to the backend."""
         raise NotImplementedError()
 
-    def format_user_response(self, user) -> dict:
+    def format_user_response(self, user: dict) -> dict:
+        """Format the user object for API response, stripping the password and fill optional fields."""
         return {
             "_id": user["_id"],
             "company_name": user.get("company_name"),

@@ -46,6 +46,7 @@ def validate_user_permission_on_collection(f):
 
 
 def admin_only_endpoint(f):
+    """Decorator for endpoint functions to allow access to admin users only."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not AuthService.is_user_admin(auth.current_user()):
@@ -61,6 +62,7 @@ def admin_only_endpoint(f):
 
 
 def available_with_auth_backend_only(f):
+    """Decorator for endpoint functions to allow access only when an authentication backend is configured (such as Mongodb)."""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not hasattr(APPLICATION_INSTANCE, "auth_backend"):
