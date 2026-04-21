@@ -25,5 +25,5 @@ class TestMongoDBFilter:
     def test_get_pattern_prefix_from_indicator_type_unsupported_raises(self):
         f = MongoDBFilter({}, {}, ())
 
-        with pytest.raises(UnboundLocalError):
+        with pytest.raises(ValueError, match=r"(?i)unsupported indicator type"):
             f._get_pattern_prefix_from_indicator_type("unsupported")
