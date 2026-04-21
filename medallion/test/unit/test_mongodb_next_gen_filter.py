@@ -1,5 +1,7 @@
+from copy import deepcopy
 from unittest.mock import MagicMock
 
+from bson import ObjectId
 from pymongo import ASCENDING, DESCENDING
 
 from medallion.filters.mongodb_next_gen_filter import MongoDBNextGenFilter
@@ -197,3 +199,96 @@ class TestMongoDBNextGenFilterSortDirection:
         """Test that random string falls back to ASCENDING."""
         result = MongoDBNextGenFilter._get_sort_direction("random_value")
         assert result == ASCENDING
+
+
+class TestMongoDBNextGenFilterNextPaginationFallback:
+
+    def test_fallback_preserves_existing_added_after_for_ascending(self):
+        next_id = ObjectId()
+        query_pipelines = []
+        batches = [
+            [{"_id": next_id, "_manifest": {"date_added": "2024-01-03T00:00:00.000Z"}}],
+            [{"_id": ObjectId(), "_manifest": {"date_added": "2024-01-04T00:00:00.000Z"}}],
+        ]
+
+        api_root_db = MagicMock()
+
+        class _QueryResult:
+            def __init__(self, docs):
+                self.docs = docs
+
+            def limit(self, _):
+                return self.docs
+
+        def find_side_effect(pipeline, sort):
+            query_pipelines.append(deepcopy(pipeline))
+            return _QueryResult(batches[len(query_pipelines) - 1])
+
+        api_root_db.objects.find.side_effect = find_side_effect
+
+        mongodb_nextgen_filter = MongoDBNextGenFilter(
+            filter_args={"sort": "asc"},
+            basic_filter={},
+            allowed=(),
+            api_root_db=api_root_db,
+            record={"limit": 1, "next": ("2024-01-03T00:00:00.000Z", str(next_id))},
+        )
+        mongodb_nextgen_filter.oversampling_factor = 2
+
+        pipeline = {"_manifest.date_added": {"$gt": "2024-01-01T00:00:00.000Z"}}
+        results = mongodb_nextgen_filter._get_sorted_results_with_next_limit_on_objects(pipeline, 1)
+
+        assert results == batches[1]
+        assert query_pipelines[0]["_manifest.date_added"] == {
+            "$gt": "2024-01-01T00:00:00.000Z",
+            "$gte": "2024-01-03T00:00:00.000Z",
+        }
+        assert query_pipelines[1]["_manifest.date_added"] == {
+            "$gt": "2024-01-01T00:00:00.000Z",
+            "$gte": "2024-01-03T00:00:00.000Z",
+        }
+
+    def test_fallback_preserves_existing_added_after_for_descending(self):
+        next_id = ObjectId()
+        query_pipelines = []
+        batches = [
+            [{"_id": next_id, "_manifest": {"date_added": "2024-01-03T00:00:00.000Z"}}],
+            [{"_id": ObjectId(), "_manifest": {"date_added": "2024-01-02T00:00:00.000Z"}}],
+        ]
+
+        api_root_db = MagicMock()
+
+        class _QueryResult:
+            def __init__(self, docs):
+                self.docs = docs
+
+            def limit(self, _):
+                return self.docs
+
+        def find_side_effect(pipeline, sort):
+            query_pipelines.append(deepcopy(pipeline))
+            return _QueryResult(batches[len(query_pipelines) - 1])
+
+        api_root_db.objects.find.side_effect = find_side_effect
+
+        mongodb_nextgen_filter = MongoDBNextGenFilter(
+            filter_args={"sort": "desc"},
+            basic_filter={},
+            allowed=(),
+            api_root_db=api_root_db,
+            record={"limit": 1, "next": ("2024-01-03T00:00:00.000Z", str(next_id))},
+        )
+        mongodb_nextgen_filter.oversampling_factor = 2
+
+        pipeline = {"_manifest.date_added": {"$gt": "2024-01-01T00:00:00.000Z"}}
+        results = mongodb_nextgen_filter._get_sorted_results_with_next_limit_on_objects(pipeline, 1)
+
+        assert results == batches[1]
+        assert query_pipelines[0]["_manifest.date_added"] == {
+            "$gt": "2024-01-01T00:00:00.000Z",
+            "$lte": "2024-01-03T00:00:00.000Z",
+        }
+        assert query_pipelines[1]["_manifest.date_added"] == {
+            "$gt": "2024-01-01T00:00:00.000Z",
+            "$lte": "2024-01-03T00:00:00.000Z",
+        }

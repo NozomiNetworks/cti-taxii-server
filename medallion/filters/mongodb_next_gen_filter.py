@@ -250,6 +250,17 @@ class MongoDBNextGenFilter(MongoDBFilter):
     def _are_cache_objects_finished(self, temp_results: list[dict]) -> bool:
         return len(temp_results) == 0
 
+    @staticmethod
+    def _restore_original_date_added_filter(pipeline: dict, was_present: bool, original_filter):
+        if not was_present:
+            pipeline.pop("_manifest.date_added", None)
+            return
+
+        if isinstance(original_filter, dict):
+            pipeline["_manifest.date_added"] = dict(original_filter)
+        else:
+            pipeline["_manifest.date_added"] = original_filter
+
     def _get_sorted_results_with_next_limit_on_objects(self, pipeline: dict, limit: int) -> list[dict]:
         """Get sorted results by date_added and _id with next and limit applied.
 
@@ -262,10 +273,14 @@ class MongoDBNextGenFilter(MongoDBFilter):
         its date_added is less than C.
         For this reason, we only filter by date_added in the query, and then filter by _id in memory to retrieve elements that come after the given _id.
         """
+        original_date_added_filter = None
+        date_added_filter_was_present = False
         if self.next:
             date_added, _id = self.next
             condition = "$gte" if self.sort == ASCENDING else "$lte"
-            existing_date_added_filter = pipeline.get("_manifest.date_added", {})
+            date_added_filter_was_present = "_manifest.date_added" in pipeline
+            original_date_added_filter = pipeline.get("_manifest.date_added")
+            existing_date_added_filter = original_date_added_filter if isinstance(original_date_added_filter, dict) else {}
             if isinstance(existing_date_added_filter, dict):
                 merged_date_added_filter = dict(existing_date_added_filter)
             else:
@@ -286,7 +301,11 @@ class MongoDBNextGenFilter(MongoDBFilter):
                     # If the remaining_results is empty even if there are still results to paginate (the query returns the maximum number of results),
                     # it means the sampling window is not large enough to get new results, and it is returning the same items over and over.
                     if len(remaining_results := results[i + 1:]) == 0 and len(results) == limit:
-                        del pipeline["_manifest.date_added"]
+                        self._restore_original_date_added_filter(
+                            pipeline,
+                            date_added_filter_was_present,
+                            original_date_added_filter,
+                        )
                         return self._get_sorted_results_with_next_limit_on_objects(pipeline, limit * self.oversampling_factor)
 
                     return remaining_results
