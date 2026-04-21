@@ -1,5 +1,7 @@
 from unittest.mock import MagicMock
 
+from pymongo import ASCENDING, DESCENDING
+
 from medallion.filters.mongodb_next_gen_filter import MongoDBNextGenFilter
 
 
@@ -141,3 +143,57 @@ class TestMongoDBNextGenFilter:
         f._get_all_objects_next = MagicMock(return_value=[])
 
         return f
+
+
+class TestMongoDBNextGenFilterSortDirection:
+    """Test suite for _get_sort_direction() method."""
+
+    def test_get_sort_direction_none_returns_ascending(self):
+        """Test that None sort_value defaults to ASCENDING."""
+        result = MongoDBNextGenFilter._get_sort_direction(None)
+        assert result == ASCENDING
+
+    def test_get_sort_direction_asc_lowercase(self):
+        """Test that 'asc' returns ASCENDING."""
+        result = MongoDBNextGenFilter._get_sort_direction("asc")
+        assert result == ASCENDING
+
+    def test_get_sort_direction_asc_uppercase(self):
+        """Test that 'ASC' (uppercase) returns ASCENDING."""
+        result = MongoDBNextGenFilter._get_sort_direction("ASC")
+        assert result == ASCENDING
+
+    def test_get_sort_direction_asc_mixed_case(self):
+        """Test that 'Asc' (mixed case) returns ASCENDING."""
+        result = MongoDBNextGenFilter._get_sort_direction("Asc")
+        assert result == ASCENDING
+
+    def test_get_sort_direction_desc_lowercase(self):
+        """Test that 'desc' returns DESCENDING."""
+        result = MongoDBNextGenFilter._get_sort_direction("desc")
+        assert result == DESCENDING
+
+    def test_get_sort_direction_desc_uppercase(self):
+        """Test that 'DESC' (uppercase) returns DESCENDING."""
+        result = MongoDBNextGenFilter._get_sort_direction("DESC")
+        assert result == DESCENDING
+
+    def test_get_sort_direction_desc_mixed_case(self):
+        """Test that 'Desc' (mixed case) returns DESCENDING."""
+        result = MongoDBNextGenFilter._get_sort_direction("Desc")
+        assert result == DESCENDING
+
+    def test_get_sort_direction_invalid_value_returns_ascending(self):
+        """Test that invalid sort_value falls back to ASCENDING."""
+        result = MongoDBNextGenFilter._get_sort_direction("invalid")
+        assert result == ASCENDING
+
+    def test_get_sort_direction_empty_string_returns_ascending(self):
+        """Test that empty string falls back to ASCENDING."""
+        result = MongoDBNextGenFilter._get_sort_direction("")
+        assert result == ASCENDING
+
+    def test_get_sort_direction_random_string_returns_ascending(self):
+        """Test that random string falls back to ASCENDING."""
+        result = MongoDBNextGenFilter._get_sort_direction("random_value")
+        assert result == ASCENDING

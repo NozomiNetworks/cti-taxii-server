@@ -560,6 +560,7 @@ def test_get_object_sort_increasing_limits(backend):
             (obj["_manifest"]["date_added"] for obj in objs["objects"]), reverse=True
         )
 
+
 def test_get_objects_sort_pagination(backend):
     max_objects = 5
     _next = None
@@ -620,6 +621,7 @@ def test_get_objects_sort_pagination(backend):
         )
 
         _next = objs["next"]
+
 
 def test_get_objects_sort_single_elements(backend):
     r = backend.client.get(
