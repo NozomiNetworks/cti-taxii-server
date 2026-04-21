@@ -529,6 +529,155 @@ def test_get_object_limit(backend):
     assert r.headers['X-TAXII-Date-Added-Last'] == '2017-12-31T13:49:53.935000Z'
 
 
+def test_get_object_sort_increasing_limits(backend):
+    max_objects = 5
+    for i in range(2, max_objects + 1):
+        r = backend.client.get(
+            test.GET_OBJECTS_EP + f"?sort=asc&limit={i}",
+            headers=backend.nozomi_auth_headers,
+            follow_redirects=True
+        )
+        assert r.status_code == 200
+        assert r.content_type == MEDIA_TYPE_TAXII_V21
+
+        objs = r.json
+        assert len(objs['objects']) == i
+        assert [obj["_manifest"]["date_added"] for obj in objs["objects"]] == sorted(
+            obj["_manifest"]["date_added"] for obj in objs["objects"]
+        )
+
+        r = backend.client.get(
+            test.GET_OBJECTS_EP + f"?sort=desc&limit={i}",
+            headers=backend.nozomi_auth_headers,
+            follow_redirects=True
+        )
+        assert r.status_code == 200
+        assert r.content_type == MEDIA_TYPE_TAXII_V21
+
+        objs = r.json
+        assert len(objs['objects']) == i
+        assert [obj["_manifest"]["date_added"] for obj in objs["objects"]] == sorted(
+            (obj["_manifest"]["date_added"] for obj in objs["objects"]), reverse=True
+        )
+
+
+def test_get_objects_sort_pagination(backend):
+    max_objects = 5
+    _next = None
+    seen_objects = []
+    for i in range(1, max_objects):
+        url = test.GET_OBJECTS_EP + "?sort=asc&limit=1"
+        if _next:
+            url += f"&next={_next}"
+
+        r = backend.client.get(
+            url,
+            headers=backend.nozomi_auth_headers,
+            follow_redirects=True
+        )
+
+        assert r.status_code == 200
+        assert r.content_type == MEDIA_TYPE_TAXII_V21
+
+        objs = r.json
+        assert objs['more'] is True
+        assert objs["next"] is not None
+        assert len(objs['objects']) == 1
+        obj = objs["objects"][0]
+        seen_objects.append(obj)
+
+        assert len(seen_objects) == i
+        assert len(set(obj["id"] for obj in seen_objects)) == i
+        assert [obj["_manifest"]["date_added"] for obj in seen_objects] == sorted(
+            obj["_manifest"]["date_added"] for obj in seen_objects
+        )
+
+        _next = objs["next"]
+
+    _next = None
+    seen_objects = []
+    for i in range(1, max_objects):
+        url = test.GET_OBJECTS_EP + "?sort=desc&limit=1"
+        if _next:
+            url += f"&next={_next}"
+
+        r = backend.client.get(
+            url,
+            headers=backend.nozomi_auth_headers,
+            follow_redirects=True
+        )
+        assert r.status_code == 200
+        assert r.content_type == MEDIA_TYPE_TAXII_V21
+
+        objs = r.json
+        assert objs['more'] is True
+        assert objs["next"] is not None
+        assert len(objs['objects']) == 1
+        obj = objs["objects"][0]
+        seen_objects.append(obj)
+
+        assert len(seen_objects) == i
+        assert len(set(obj["id"] for obj in seen_objects)) == i
+        assert [obj["_manifest"]["date_added"] for obj in seen_objects] == sorted(
+            (obj["_manifest"]["date_added"] for obj in seen_objects), reverse=True
+        )
+
+        _next = objs["next"]
+
+
+def test_get_objects_sort_single_elements(backend):
+    r = backend.client.get(
+        test.GET_OBJECTS_EP + "?sort=asc&limit=1",
+        headers=backend.nozomi_auth_headers,
+        follow_redirects=True
+    )
+    objs = r.json
+    assert len(objs['objects']) == 1
+    older_obj = objs['objects'][0]
+
+    r = backend.client.get(
+        test.GET_OBJECTS_EP + "?sort=desc&limit=1",
+        headers=backend.nozomi_auth_headers,
+        follow_redirects=True
+    )
+    objs = r.json
+    assert len(objs['objects']) == 1
+    newer_obj = objs['objects'][0]
+
+    assert older_obj["_manifest"]["date_added"] < newer_obj["_manifest"]["date_added"]
+    assert older_obj["id"] != newer_obj["id"]
+
+
+def test_get_objects_sort_with_added_after(backend):
+    r = backend.client.get(
+        test.GET_OBJECTS_EP + "?added_after=2016-11-03T12:30:59Z",
+        headers=backend.nozomi_auth_headers,
+    )
+
+    assert r.status_code == 200
+    assert r.content_type == MEDIA_TYPE_TAXII_V21
+    objs = r.json
+    assert objs['more'] is False
+    assert len(objs['objects']) == 3
+    assert [obj["_manifest"]["date_added"] for obj in objs['objects']] == sorted(
+        obj["_manifest"]["date_added"] for obj in objs['objects']
+    )
+
+    r = backend.client.get(
+        test.GET_OBJECTS_EP + "?added_after=2016-11-03T12:30:59Z&sort=desc",
+        headers=backend.nozomi_auth_headers,
+    )
+
+    assert r.status_code == 200
+    assert r.content_type == MEDIA_TYPE_TAXII_V21
+    objs = r.json
+    assert objs['more'] is False
+    assert len(objs['objects']) == 3
+    assert [obj["_manifest"]["date_added"] for obj in objs['objects']] == sorted(
+        (obj["_manifest"]["date_added"] for obj in objs['objects']), reverse=True
+    )
+
+
 @pytest.mark.parametrize("filter, modified", [("?match[version]=2016-12-25T12:30:59.444Z", "2016-12-25T12:30:59.444Z"),
                                               ("?match[version]=first", "2016-11-03T12:30:59.000Z"),
                                               ("?match[version]=last", "2017-01-27T13:49:53.935Z")])

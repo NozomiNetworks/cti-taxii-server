@@ -43,7 +43,8 @@ jobs:
         sudo systemctl start mongod
     - name: Install and update essential dependencies
       run: |
-        pip install -U pip setuptools
+        pip install -U pip
+        pip install setuptools==78.1.1
         pip install tox-gh-actions
         pip install codecov
     - name: Check inside mongo bin folder

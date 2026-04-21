@@ -1,4 +1,5 @@
 from bson import ObjectId
+from pymongo import ASCENDING, DESCENDING
 from pymongo.synchronous.database import Database
 
 from ..common import datetime_to_float, string_to_datetime
@@ -7,7 +8,14 @@ from .mongodb_filter import MongoDBFilter
 
 class MongoDBNextGenFilter(MongoDBFilter):
 
-    def __init__(self, filter_args, basic_filter, allowed: tuple[str], api_root_db: Database, record: dict = None):
+    def __init__(
+        self,
+        filter_args: dict,
+        basic_filter: dict,
+        allowed: tuple[str, ...],
+        api_root_db: Database,
+        record: dict
+    ):
         super(MongoDBNextGenFilter, self).__init__(filter_args, basic_filter, allowed, record)
         self.basic_filter = basic_filter
         self.full_query = self._query_parameters(allowed)
@@ -15,6 +23,22 @@ class MongoDBNextGenFilter(MongoDBFilter):
         self.oversampling_factor = 5
         self.limit = record.get("limit")
         self.next = record.get("next")
+        self.sort = self._get_sort_direction(filter_args.get("sort"))
+
+    @staticmethod
+    def _get_sort_direction(sort_value: str | None) -> int:
+        if sort_value is None:
+            return ASCENDING
+
+        normalized_sort = sort_value.lower()
+
+        if normalized_sort == "asc":
+            return ASCENDING
+
+        if normalized_sort == "desc":
+            return DESCENDING
+
+        return ASCENDING
 
     def process_manifests_next_gen_filter(self, allowed: tuple[str]) -> tuple[list[dict], tuple[str, str] | None]:
         results, _next = self._process_objects_next_gen_filter_raw(allowed)
@@ -129,7 +153,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
             # 5. Update cursor to last _id seen
             self.next = (temp_results[-1]["_manifest"]["date_added"], temp_results[-1]["_id"])
 
-        return sorted(results, key=lambda x: x["_manifest"]["date_added"])
+        return sorted(results, key=lambda x: x["_manifest"]["date_added"], reverse=self.sort == DESCENDING)
 
     @staticmethod
     def _update_pipeline_with_version_dates(pipeline: dict, match_version: str):
@@ -226,6 +250,17 @@ class MongoDBNextGenFilter(MongoDBFilter):
     def _are_cache_objects_finished(self, temp_results: list[dict]) -> bool:
         return len(temp_results) == 0
 
+    @staticmethod
+    def _restore_original_date_added_filter(pipeline: dict, was_present: bool, original_filter):
+        if not was_present:
+            pipeline.pop("_manifest.date_added", None)
+            return
+
+        if isinstance(original_filter, dict):
+            pipeline["_manifest.date_added"] = dict(original_filter)
+        else:
+            pipeline["_manifest.date_added"] = original_filter
+
     def _get_sorted_results_with_next_limit_on_objects(self, pipeline: dict, limit: int) -> list[dict]:
         """Get sorted results by date_added and _id with next and limit applied.
 
@@ -238,14 +273,22 @@ class MongoDBNextGenFilter(MongoDBFilter):
         its date_added is less than C.
         For this reason, we only filter by date_added in the query, and then filter by _id in memory to retrieve elements that come after the given _id.
         """
+        original_date_added_filter = None
+        date_added_filter_was_present = False
         if self.next:
             date_added, _id = self.next
-            pipeline.update({"_manifest.date_added": {"$gte": date_added}})
+            condition = "$gte" if self.sort == ASCENDING else "$lte"
+            date_added_filter_was_present = "_manifest.date_added" in pipeline
+            original_date_added_filter = pipeline.get("_manifest.date_added")
+            existing_date_added_filter = original_date_added_filter if isinstance(original_date_added_filter, dict) else {}
+            merged_date_added_filter = dict(existing_date_added_filter)
+            merged_date_added_filter[condition] = date_added
+            pipeline["_manifest.date_added"] = merged_date_added_filter
 
         results = list(
             self.api_root_db.objects.find(
                 pipeline,
-                sort=[('_manifest.date_added', 1), ('_id', 1)]
+                sort=[('_manifest.date_added', self.sort), ('_id', self.sort)]
             ).limit(limit)
         )
 
@@ -255,7 +298,11 @@ class MongoDBNextGenFilter(MongoDBFilter):
                     # If the remaining_results is empty even if there are still results to paginate (the query returns the maximum number of results),
                     # it means the sampling window is not large enough to get new results, and it is returning the same items over and over.
                     if len(remaining_results := results[i + 1:]) == 0 and len(results) == limit:
-                        del pipeline["_manifest.date_added"]
+                        self._restore_original_date_added_filter(
+                            pipeline,
+                            date_added_filter_was_present,
+                            original_date_added_filter,
+                        )
                         return self._get_sorted_results_with_next_limit_on_objects(pipeline, limit * self.oversampling_factor)
 
                     return remaining_results

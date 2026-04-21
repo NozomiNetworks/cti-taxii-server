@@ -2,7 +2,7 @@ FROM python:3.13-bookworm
 
 COPY . /opt/taxii
 WORKDIR /opt/taxii
-RUN pip install --upgrade pip setuptools \
+RUN pip install --upgrade pip setuptools==78.1.1 \
     && pip install pymongo \
     && pip install .
 
