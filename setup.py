@@ -56,7 +56,7 @@ setup(
         "packaging",
         "pytz",
         "six",
-        "setuptools",
+        "setuptools==78.1.1",
         "rollbar",
         "opentelemetry-api",
         "opentelemetry-sdk",
