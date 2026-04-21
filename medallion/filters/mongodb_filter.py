@@ -84,6 +84,10 @@ class MongoDBFilter(BasicFilter):
                 regex = "[file:hashes.'SHA-1' ="
             case IndicatorType.SHA256:
                 regex = "[file:hashes.'SHA-256' ="
+            case _:
+                raise ValueError(
+                    f"Unsupported indicator type: {indicator_type!r}. Use a supported indicator type."
+                )
 
         return re.escape(regex)
 
