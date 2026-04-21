@@ -529,7 +529,7 @@ def test_get_object_limit(backend):
     assert r.headers['X-TAXII-Date-Added-Last'] == '2017-12-31T13:49:53.935000Z'
 
 
-def test_get_object_sort(backend):
+def test_get_object_sort_increasing_limits(backend):
     max_objects = 5
     for i in range(2, max_objects + 1):
         r = backend.client.get(
@@ -560,6 +560,7 @@ def test_get_object_sort(backend):
             (obj["_manifest"]["date_added"] for obj in objs["objects"]), reverse=True
         )
 
+def test_get_objects_sort_pagination(backend):
     max_objects = 5
     _next = None
     seen_objects = []
@@ -620,6 +621,7 @@ def test_get_object_sort(backend):
 
         _next = objs["next"]
 
+def test_get_objects_sort_single_elements(backend):
     r = backend.client.get(
         test.GET_OBJECTS_EP + "?sort=asc&limit=1",
         headers=backend.nozomi_auth_headers,
@@ -641,6 +643,8 @@ def test_get_object_sort(backend):
     assert older_obj["_manifest"]["date_added"] < newer_obj["_manifest"]["date_added"]
     assert older_obj["id"] != newer_obj["id"]
 
+
+def test_get_objects_sort_with_added_after(backend):
     r = backend.client.get(
         test.GET_OBJECTS_EP + "?added_after=2016-11-03T12:30:59Z",
         headers=backend.nozomi_auth_headers,
