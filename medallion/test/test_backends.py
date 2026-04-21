@@ -91,7 +91,6 @@ def test_get_status(backend):
 
 
 def test_get_objects(backend):
-
     r = backend.client.get(
         test.GET_OBJECTS_EP,
         headers=backend.nozomi_auth_headers,
@@ -348,6 +347,105 @@ def test_get_objects_type(backend):
     assert objs['more'] is False
     assert len(objs['objects']) == 2
     assert all("indicator" == obj["type"] for obj in objs["objects"])
+
+
+def test_get_objects_pattern_type_url(backend):
+    r = backend.client.get(
+        test.GET_OBJECTS_EP + "?match[pattern]=url",
+        headers=backend.nozomi_auth_headers,
+    )
+
+    assert r.status_code == 200
+    assert r.content_type == MEDIA_TYPE_TAXII_V21
+    objs = r.json
+    assert objs['more'] is False
+    assert len(objs['objects']) == 1
+    assert objs['objects'][0]["pattern"].startswith("[url:value = ")
+
+
+def test_get_objects_pattern_type_sha256(backend):
+    r = backend.client.get(
+        test.GET_OBJECTS_EP + "?match[pattern]=sha256",
+        headers=backend.nozomi_auth_headers,
+    )
+
+    assert r.status_code == 200
+    assert r.content_type == MEDIA_TYPE_TAXII_V21
+    objs = r.json
+    assert objs['more'] is False
+    assert len(objs['objects']) == 1
+    assert objs['objects'][0]["pattern"].startswith("[file:hashes.'SHA-256' = ")
+
+
+def test_get_objects_pattern_type_multiple(backend):
+    r = backend.client.get(
+        test.GET_OBJECTS_EP + "?match[pattern]=sha256,ipv4",
+        headers=backend.nozomi_auth_headers,
+    )
+
+    assert r.status_code == 200
+    assert r.content_type == MEDIA_TYPE_TAXII_V21
+    objs = r.json
+    assert objs['more'] is False
+    assert len(objs['objects']) == 1
+    assert objs['objects'][0]["pattern"].startswith("[file:hashes.'SHA-256' = ")
+
+    r = backend.client.get(
+        test.GET_OBJECTS_EP + "?match[pattern]=url,ipv4",
+        headers=backend.nozomi_auth_headers,
+    )
+
+    assert r.status_code == 200
+    assert r.content_type == MEDIA_TYPE_TAXII_V21
+    objs = r.json
+    assert objs['more'] is False
+    assert len(objs['objects']) == 1
+    assert objs['objects'][0]["pattern"].startswith("[url:value = ")
+
+    r = backend.client.get(
+        test.GET_OBJECTS_EP + "?match[pattern]=sha256,url,ipv4",
+        headers=backend.nozomi_auth_headers,
+    )
+
+    assert r.status_code == 200
+    assert r.content_type == MEDIA_TYPE_TAXII_V21
+    objs = r.json
+    assert objs['more'] is False
+    assert len(objs['objects']) == 2
+    assert all(
+        obj["pattern"].startswith("[url:value = ") or obj["pattern"].startswith("[file:hashes.'SHA-256' = ")
+        for obj in objs['objects']
+    )
+
+    r = backend.client.get(
+        test.GET_OBJECTS_EP + "?match[pattern]=sha256,url,invalid",
+        headers=backend.nozomi_auth_headers,
+    )
+
+    assert r.status_code == 400
+    assert r.content_type == MEDIA_TYPE_TAXII_V21
+
+
+def test_get_objects_pattern_type_ipv4(backend):
+    r = backend.client.get(
+        test.GET_OBJECTS_EP + "?match[pattern]=ipv4",
+        headers=backend.nozomi_auth_headers,
+    )
+
+    assert r.status_code == 200
+    assert r.content_type == MEDIA_TYPE_TAXII_V21
+    objs = r.json
+    assert len(objs) == 0
+
+
+def test_get_objects_pattern_type_invalid(backend):
+    r = backend.client.get(
+        test.GET_OBJECTS_EP + "?match[pattern]=sha",
+        headers=backend.nozomi_auth_headers,
+    )
+
+    assert r.status_code == 400
+    assert r.content_type == MEDIA_TYPE_TAXII_V21
 
 
 def get_objects_by_version(backend, filter):

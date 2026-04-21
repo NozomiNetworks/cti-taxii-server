@@ -1,8 +1,11 @@
+import re
+
 from bson.son import SON
 from pymongo import ASCENDING
 
 from ..common import (
-    cast_filter_match_version_to_dates, datetime_to_float, string_to_datetime
+    IndicatorType, cast_filter_match_version_to_dates, datetime_to_float,
+    string_to_datetime
 )
 from .basic_filter import BasicFilter
 
@@ -32,6 +35,21 @@ class MongoDBFilter(BasicFilter):
                     parameters["id"] = {"$eq": ids_[0]}
                 else:
                     parameters["id"] = {"$in": ids_}
+            match_pattern = self.filter_args.get("match[pattern]")
+            if match_pattern and "pattern" in allowed:
+                patterns = [pattern.upper() for pattern in match_pattern.split(",")]
+                if len(patterns) == 1:
+                    parameters["pattern"] = {
+                        "$regex": f"^{self._get_pattern_prefix_from_indicator_type(IndicatorType[patterns[0]])}"
+                    }
+                else:
+                    parameters["pattern"] = {
+                        "$regex": f"^(?:{'|'.join(  # noqa: E231
+                            self._get_pattern_prefix_from_indicator_type(IndicatorType[pattern])
+                            for pattern in patterns
+                        )})"
+                    }
+
             match_spec_version = self.filter_args.get("match[spec_version]")
             if match_spec_version and "spec_version" in allowed:
                 spec_versions = match_spec_version.split(",")
@@ -52,6 +70,27 @@ class MongoDBFilter(BasicFilter):
                 }
         return parameters
 
+    def _get_pattern_prefix_from_indicator_type(self, indicator_type: IndicatorType) -> str:
+        match indicator_type:
+            case IndicatorType.IPV4:
+                regex = "[ipv4-addr:value ="
+            case IndicatorType.DOMAIN:
+                regex = "[domain-name:value ="
+            case IndicatorType.URL:
+                regex = "[url:value ="
+            case IndicatorType.MD5:
+                regex = "[file:hashes.'MD5' ="
+            case IndicatorType.SHA1:
+                regex = "[file:hashes.'SHA-1' ="
+            case IndicatorType.SHA256:
+                regex = "[file:hashes.'SHA-256' ="
+            case _:
+                raise ValueError(
+                    f"Unsupported indicator type: {indicator_type!r}. Use a supported indicator type."
+                )
+
+        return re.escape(regex)
+
     def process_filter(self, data, allowed, manifest_info):
         pipeline = [
             {"$match": {"$and": [self.full_query]}},
@@ -62,7 +101,8 @@ class MongoDBFilter(BasicFilter):
         if not match_spec_version and "spec_version" in allowed:
             latest_pipeline = list(pipeline)
             latest_pipeline.append({"$sort": {"_manifest.media_type": ASCENDING}})
-            latest_pipeline.append({"$group": SON([("_id", "$id"), ("media_type", SON([("$last", "$_manifest.media_type")]))])})
+            latest_pipeline.append(
+                {"$group": SON([("_id", "$id"), ("media_type", SON([("$last", "$_manifest.media_type")]))])})
 
             query = [
                 {"id": x["_id"], "_manifest.media_type": x["media_type"]}
@@ -81,7 +121,8 @@ class MongoDBFilter(BasicFilter):
 
                 latest_pipeline = list(pipeline)
                 latest_pipeline.append({"$sort": {"_manifest.version": ASCENDING}})
-                latest_pipeline.append({"$group": SON([("_id", "$id"), ("versions", SON([("$push", "$_manifest.version")]))])})
+                latest_pipeline.append(
+                    {"$group": SON([("_id", "$id"), ("versions", SON([("$push", "$_manifest.version")]))])})
 
                 # The documents are sorted in ASCENDING order.
                 version_selector = []
@@ -102,7 +143,8 @@ class MongoDBFilter(BasicFilter):
                 if query:
                     pipeline.append({"$match": {"$or": query}})
 
-        pipeline.append({"$sort": SON([("_manifest.date_added", ASCENDING), ("created", ASCENDING), ("modified", ASCENDING)])})
+        pipeline.append(
+            {"$sort": SON([("_manifest.date_added", ASCENDING), ("created", ASCENDING), ("modified", ASCENDING)])})
 
         if manifest_info == "manifests":
             # Project the final results
