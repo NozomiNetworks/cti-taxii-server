@@ -551,6 +551,8 @@ def test_get_object_sort(backend):
             headers=backend.nozomi_auth_headers,
             follow_redirects=True
         )
+        assert r.status_code == 200
+        assert r.content_type == MEDIA_TYPE_TAXII_V21
 
         objs = r.json
         assert len(objs['objects']) == i
