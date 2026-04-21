@@ -23,8 +23,22 @@ class MongoDBNextGenFilter(MongoDBFilter):
         self.oversampling_factor = 5
         self.limit = record.get("limit")
         self.next = record.get("next")
-        self.sort = ASCENDING if filter_args.get("sort", "asc").lower() == "asc" else DESCENDING
+        self.sort = self._get_sort_direction(filter_args.get("sort"))
 
+    @staticmethod
+    def _get_sort_direction(sort_value: str | None) -> int:
+        if sort_value is None:
+            return ASCENDING
+
+        normalized_sort = sort_value.lower()
+
+        if normalized_sort == "asc":
+            return ASCENDING
+
+        if normalized_sort == "desc":
+            return DESCENDING
+
+        return ASCENDING
     def process_manifests_next_gen_filter(self, allowed: tuple[str]) -> tuple[list[dict], tuple[str, str] | None]:
         results, _next = self._process_objects_next_gen_filter_raw(allowed)
 
