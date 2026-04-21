@@ -265,7 +265,13 @@ class MongoDBNextGenFilter(MongoDBFilter):
         if self.next:
             date_added, _id = self.next
             condition = "$gte" if self.sort == ASCENDING else "$lte"
-            pipeline.update({"_manifest.date_added": {condition: date_added}})
+            existing_date_added_filter = pipeline.get("_manifest.date_added", {})
+            if isinstance(existing_date_added_filter, dict):
+                merged_date_added_filter = dict(existing_date_added_filter)
+            else:
+                merged_date_added_filter = {}
+            merged_date_added_filter[condition] = date_added
+            pipeline["_manifest.date_added"] = merged_date_added_filter
 
         results = list(
             self.api_root_db.objects.find(

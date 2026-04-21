@@ -641,6 +641,34 @@ def test_get_object_sort(backend):
     assert older_obj["_manifest"]["date_added"] < newer_obj["_manifest"]["date_added"]
     assert older_obj["id"] != newer_obj["id"]
 
+    r = backend.client.get(
+        test.GET_OBJECTS_EP + "?added_after=2016-11-03T12:30:59Z",
+        headers=backend.nozomi_auth_headers,
+    )
+
+    assert r.status_code == 200
+    assert r.content_type == MEDIA_TYPE_TAXII_V21
+    objs = r.json
+    assert objs['more'] is False
+    assert len(objs['objects']) == 3
+    assert [obj["_manifest"]["date_added"] for obj in objs['objects']] == sorted(
+        obj["_manifest"]["date_added"] for obj in objs['objects']
+    )
+
+    r = backend.client.get(
+        test.GET_OBJECTS_EP + "?added_after=2016-11-03T12:30:59Z&sort=desc",
+        headers=backend.nozomi_auth_headers,
+    )
+
+    assert r.status_code == 200
+    assert r.content_type == MEDIA_TYPE_TAXII_V21
+    objs = r.json
+    assert objs['more'] is False
+    assert len(objs['objects']) == 3
+    assert [obj["_manifest"]["date_added"] for obj in objs['objects']] == sorted(
+        (obj["_manifest"]["date_added"] for obj in objs['objects']), reverse=True
+    )
+
 
 @pytest.mark.parametrize("filter, modified", [("?match[version]=2016-12-25T12:30:59.444Z", "2016-12-25T12:30:59.444Z"),
                                               ("?match[version]=first", "2016-11-03T12:30:59.000Z"),
