@@ -1,3 +1,5 @@
+import re
+
 from bson.son import SON
 from pymongo import ASCENDING
 
@@ -77,13 +79,13 @@ class MongoDBFilter(BasicFilter):
             case IndicatorType.URL:
                 regex = "[url:value ="
             case IndicatorType.MD5:
-                regex = "[file:hashes.'MD5'"
+                regex = "[file:hashes.'MD5' ="
             case IndicatorType.SHA1:
-                regex = "[file:hashes.'SHA-1'"
+                regex = "[file:hashes.'SHA-1' ="
             case IndicatorType.SHA256:
-                regex = "[file:hashes.'SHA-256'"
+                regex = "[file:hashes.'SHA-256' ="
 
-        return regex.replace("[", "\\[").replace(":", "\\:")
+        return re.escape(regex)
 
     def process_filter(self, data, allowed, manifest_info):
         pipeline = [
