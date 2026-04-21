@@ -537,6 +537,8 @@ def test_get_object_sort(backend):
             headers=backend.nozomi_auth_headers,
             follow_redirects=True
         )
+        assert r.status_code == 200
+        assert r.content_type == MEDIA_TYPE_TAXII_V21
 
         objs = r.json
         assert len(objs['objects']) == i
@@ -555,6 +557,64 @@ def test_get_object_sort(backend):
         assert [obj["_manifest"]["date_added"] for obj in objs["objects"]] == sorted(
             (obj["_manifest"]["date_added"] for obj in objs["objects"]), reverse=True
         )
+
+    max_objects = 5
+    prev = None
+    _next = None
+    seen_objects = []
+    for i in range(1, max_objects):
+        url = test.GET_OBJECTS_EP + f"?sort=asc&limit=1"
+        if _next:
+            url += f"&next={_next}"
+
+        r = backend.client.get(
+            url,
+            headers=backend.nozomi_auth_headers,
+            follow_redirects=True
+        )
+
+        assert r.status_code == 200
+        assert r.content_type == MEDIA_TYPE_TAXII_V21
+
+        objs = r.json
+        assert len(objs['objects']) == 1
+        obj = objs["objects"][0]
+        seen_objects.append(obj)
+
+        assert len(seen_objects) == i
+        assert [obj["_manifest"]["date_added"] for obj in seen_objects] == sorted(
+            obj["_manifest"]["date_added"] for obj in seen_objects
+        )
+
+        _next = objs["next"]
+
+    prev = None
+    _next = None
+    seen_objects = []
+    for i in range(1, max_objects):
+        url = test.GET_OBJECTS_EP + f"?sort=desc&limit=1"
+        if _next:
+            url += f"&next={_next}"
+
+        r = backend.client.get(
+            url,
+            headers=backend.nozomi_auth_headers,
+            follow_redirects=True
+        )
+        assert r.status_code == 200
+        assert r.content_type == MEDIA_TYPE_TAXII_V21
+
+        objs = r.json
+        assert len(objs['objects']) == 1
+        obj = objs["objects"][0]
+        seen_objects.append(obj)
+
+        assert len(seen_objects) == i
+        assert [obj["_manifest"]["date_added"] for obj in seen_objects] == sorted(
+            (obj["_manifest"]["date_added"] for obj in seen_objects), reverse=True
+        )
+
+        _next = objs["next"]
 
     r = backend.client.get(
         test.GET_OBJECTS_EP + f"?sort=asc&limit=1",
