@@ -281,10 +281,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
             date_added_filter_was_present = "_manifest.date_added" in pipeline
             original_date_added_filter = pipeline.get("_manifest.date_added")
             existing_date_added_filter = original_date_added_filter if isinstance(original_date_added_filter, dict) else {}
-            if isinstance(existing_date_added_filter, dict):
-                merged_date_added_filter = dict(existing_date_added_filter)
-            else:
-                merged_date_added_filter = {}
+            merged_date_added_filter = dict(existing_date_added_filter)
             merged_date_added_filter[condition] = date_added
             pipeline["_manifest.date_added"] = merged_date_added_filter
 
