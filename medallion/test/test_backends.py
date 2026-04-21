@@ -578,6 +578,8 @@ def test_get_object_sort(backend):
         assert r.content_type == MEDIA_TYPE_TAXII_V21
 
         objs = r.json
+        assert objs['more'] is True
+        assert objs["next"] is not None
         assert len(objs['objects']) == 1
         obj = objs["objects"][0]
         seen_objects.append(obj)
@@ -605,6 +607,8 @@ def test_get_object_sort(backend):
         assert r.content_type == MEDIA_TYPE_TAXII_V21
 
         objs = r.json
+        assert objs['more'] is True
+        assert objs["next"] is not None
         assert len(objs['objects']) == 1
         obj = objs["objects"][0]
         seen_objects.append(obj)

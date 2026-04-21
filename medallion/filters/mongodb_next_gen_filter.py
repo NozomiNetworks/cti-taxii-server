@@ -12,7 +12,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
         self,
         filter_args: dict,
         basic_filter: dict,
-        allowed: tuple[str],
+        allowed: tuple[str, ...],
         api_root_db: Database,
         record: dict
     ):
