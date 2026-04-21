@@ -587,6 +587,7 @@ def test_get_objects_sort_pagination(backend):
         seen_objects.append(obj)
 
         assert len(seen_objects) == i
+        assert len(set(obj["id"] for obj in seen_objects)) == i
         assert [obj["_manifest"]["date_added"] for obj in seen_objects] == sorted(
             obj["_manifest"]["date_added"] for obj in seen_objects
         )
@@ -616,6 +617,7 @@ def test_get_objects_sort_pagination(backend):
         seen_objects.append(obj)
 
         assert len(seen_objects) == i
+        assert len(set(obj["id"] for obj in seen_objects)) == i
         assert [obj["_manifest"]["date_added"] for obj in seen_objects] == sorted(
             (obj["_manifest"]["date_added"] for obj in seen_objects), reverse=True
         )
