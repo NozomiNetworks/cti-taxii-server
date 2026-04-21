@@ -1,6 +1,6 @@
 from bson import ObjectId
 from pymongo.synchronous.database import Database
-
+from pymongo import ASCENDING, DESCENDING
 from ..common import datetime_to_float, string_to_datetime
 from .mongodb_filter import MongoDBFilter
 
@@ -22,7 +22,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
         self.oversampling_factor = 5
         self.limit = record.get("limit")
         self.next = record.get("next")
-        self.sort = 1 if filter_args.get("sort", "asc").lower() == "asc" else -1
+        self.sort = ASCENDING if filter_args.get("sort", "asc").lower() == "asc" else DESCENDING
 
     def process_manifests_next_gen_filter(self, allowed: tuple[str]) -> tuple[list[dict], tuple[str, str] | None]:
         results, _next = self._process_objects_next_gen_filter_raw(allowed)
@@ -137,7 +137,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
             # 5. Update cursor to last _id seen
             self.next = (temp_results[-1]["_manifest"]["date_added"], temp_results[-1]["_id"])
 
-        return sorted(results, key=lambda x: x["_manifest"]["date_added"], reverse=self.sort < 0)
+        return sorted(results, key=lambda x: x["_manifest"]["date_added"], reverse=self.sort == DESCENDING)
 
     @staticmethod
     def _update_pipeline_with_version_dates(pipeline: dict, match_version: str):
@@ -248,7 +248,8 @@ class MongoDBNextGenFilter(MongoDBFilter):
         """
         if self.next:
             date_added, _id = self.next
-            pipeline.update({"_manifest.date_added": {"$gte": date_added}})
+            condition = "$gte" if self.sort == ASCENDING else "$lte"
+            pipeline.update({"_manifest.date_added": {condition: date_added}})
 
         results = list(
             self.api_root_db.objects.find(
