@@ -14,7 +14,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
         basic_filter: dict,
         allowed: tuple[str],
         api_root_db: Database,
-        record: dict | None = None
+        record: dict
     ):
         super(MongoDBNextGenFilter, self).__init__(filter_args, basic_filter, allowed, record)
         self.basic_filter = basic_filter
