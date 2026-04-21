@@ -529,6 +529,55 @@ def test_get_object_limit(backend):
     assert r.headers['X-TAXII-Date-Added-Last'] == '2017-12-31T13:49:53.935000Z'
 
 
+def test_get_object_sort(backend):
+    max_objects = 5
+    for i in range(2, max_objects + 1):
+        r = backend.client.get(
+            test.GET_OBJECTS_EP + f"?sort=asc&limit={i}",
+            headers=backend.nozomi_auth_headers,
+            follow_redirects=True
+        )
+
+        objs = r.json
+        assert len(objs['objects']) == i
+        assert [obj["_manifest"]["date_added"] for obj in objs["objects"]] == sorted(
+            obj["_manifest"]["date_added"] for obj in objs["objects"]
+        )
+
+        r = backend.client.get(
+            test.GET_OBJECTS_EP + f"?sort=desc&limit={i}",
+            headers=backend.nozomi_auth_headers,
+            follow_redirects=True
+        )
+
+        objs = r.json
+        assert len(objs['objects']) == i
+        assert [obj["_manifest"]["date_added"] for obj in objs["objects"]] == sorted(
+            (obj["_manifest"]["date_added"] for obj in objs["objects"]), reverse=True
+        )
+
+    r = backend.client.get(
+        test.GET_OBJECTS_EP + f"?sort=asc&limit=1",
+        headers=backend.nozomi_auth_headers,
+        follow_redirects=True
+    )
+    objs = r.json
+    assert len(objs['objects']) == 1
+    older_obj = objs['objects'][0]
+
+    r = backend.client.get(
+        test.GET_OBJECTS_EP + f"?sort=desc&limit=1",
+        headers=backend.nozomi_auth_headers,
+        follow_redirects=True
+    )
+    objs = r.json
+    assert len(objs['objects']) == 1
+    newer_obj = objs['objects'][0]
+
+    assert older_obj["_manifest"]["date_added"] < newer_obj["_manifest"]["date_added"]
+    assert older_obj["id"] != newer_obj["id"]
+
+
 @pytest.mark.parametrize("filter, modified", [("?match[version]=2016-12-25T12:30:59.444Z", "2016-12-25T12:30:59.444Z"),
                                               ("?match[version]=first", "2016-11-03T12:30:59.000Z"),
                                               ("?match[version]=last", "2017-01-27T13:49:53.935Z")])

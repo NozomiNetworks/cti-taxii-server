@@ -7,7 +7,14 @@ from .mongodb_filter import MongoDBFilter
 
 class MongoDBNextGenFilter(MongoDBFilter):
 
-    def __init__(self, filter_args, basic_filter, allowed: tuple[str], api_root_db: Database, record: dict = None):
+    def __init__(
+        self,
+            filter_args: dict,
+            basic_filter: dict,
+            allowed: tuple[str],
+            api_root_db: Database,
+            record: dict | None = None
+    ):
         super(MongoDBNextGenFilter, self).__init__(filter_args, basic_filter, allowed, record)
         self.basic_filter = basic_filter
         self.full_query = self._query_parameters(allowed)
@@ -15,6 +22,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
         self.oversampling_factor = 5
         self.limit = record.get("limit")
         self.next = record.get("next")
+        self.sort = 1 if filter_args.get("sort", "asc").lower() == "asc" else -1
 
     def process_manifests_next_gen_filter(self, allowed: tuple[str]) -> tuple[list[dict], tuple[str, str] | None]:
         results, _next = self._process_objects_next_gen_filter_raw(allowed)
@@ -129,7 +137,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
             # 5. Update cursor to last _id seen
             self.next = (temp_results[-1]["_manifest"]["date_added"], temp_results[-1]["_id"])
 
-        return sorted(results, key=lambda x: x["_manifest"]["date_added"])
+        return sorted(results, key=lambda x: x["_manifest"]["date_added"], reverse=self.sort < 0)
 
     @staticmethod
     def _update_pipeline_with_version_dates(pipeline: dict, match_version: str):
@@ -245,7 +253,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
         results = list(
             self.api_root_db.objects.find(
                 pipeline,
-                sort=[('_manifest.date_added', 1), ('_id', 1)]
+                sort=[('_manifest.date_added', self.sort), ('_id', self.sort)]
             ).limit(limit)
         )
 
