@@ -42,10 +42,10 @@ class MongoDBFilter(BasicFilter):
                     }
                 else:
                     parameters["pattern"] = {
-                        "$regex": f"^{'|'.join(
+                        "$regex": f"^(?:{'|'.join(
                             self._get_pattern_prefix_from_indicator_type(IndicatorType[pattern])
                             for pattern in patterns
-                        )}"
+                        )})"
                     }
 
             match_spec_version = self.filter_args.get("match[spec_version]")
