@@ -1,6 +1,7 @@
 from bson import ObjectId
-from pymongo.synchronous.database import Database
 from pymongo import ASCENDING, DESCENDING
+from pymongo.synchronous.database import Database
+
 from ..common import datetime_to_float, string_to_datetime
 from .mongodb_filter import MongoDBFilter
 
