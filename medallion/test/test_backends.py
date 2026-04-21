@@ -559,11 +559,10 @@ def test_get_object_sort(backend):
         )
 
     max_objects = 5
-    prev = None
     _next = None
     seen_objects = []
     for i in range(1, max_objects):
-        url = test.GET_OBJECTS_EP + f"?sort=asc&limit=1"
+        url = test.GET_OBJECTS_EP + "?sort=asc&limit=1"
         if _next:
             url += f"&next={_next}"
 
@@ -588,11 +587,10 @@ def test_get_object_sort(backend):
 
         _next = objs["next"]
 
-    prev = None
     _next = None
     seen_objects = []
     for i in range(1, max_objects):
-        url = test.GET_OBJECTS_EP + f"?sort=desc&limit=1"
+        url = test.GET_OBJECTS_EP + "?sort=desc&limit=1"
         if _next:
             url += f"&next={_next}"
 
@@ -617,7 +615,7 @@ def test_get_object_sort(backend):
         _next = objs["next"]
 
     r = backend.client.get(
-        test.GET_OBJECTS_EP + f"?sort=asc&limit=1",
+        test.GET_OBJECTS_EP + "?sort=asc&limit=1",
         headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
@@ -626,7 +624,7 @@ def test_get_object_sort(backend):
     older_obj = objs['objects'][0]
 
     r = backend.client.get(
-        test.GET_OBJECTS_EP + f"?sort=desc&limit=1",
+        test.GET_OBJECTS_EP + "?sort=desc&limit=1",
         headers=backend.nozomi_auth_headers,
         follow_redirects=True
     )
