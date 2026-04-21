@@ -12,7 +12,7 @@ from pymongo.synchronous.collection import Collection
 from six import string_types
 
 from ..common import (
-    APPLICATION_INSTANCE, create_resource, datetime_to_float,
+    APPLICATION_INSTANCE, IndicatorType, create_resource, datetime_to_float,
     datetime_to_string, datetime_to_string_stix, determine_spec_version,
     determine_version, float_to_datetime, generate_status,
     generate_status_details, get_application_instance_config_values,
@@ -310,6 +310,7 @@ class MongoBackend(Backend):
     def get_objects(self, api_root, collection_id, filter_args, allowed_filters, limit):
         api_root_db = self.client[api_root]
         _next = self._get_next_doc_id(api_root_db["pagination"], filter_args.get("next"), filter_args)
+        self._verify_match_pattern_in_allowlist(filter_args.get("match[pattern]"))
 
         full_filter_next_gen = MongoDBNextGenFilter(
             filter_args,
@@ -337,6 +338,15 @@ class MongoBackend(Backend):
         headers = get_custom_headers(manifest_resource)
 
         return create_resource("objects", objects_found, more, next_id), headers
+
+    def _verify_match_pattern_in_allowlist(self, patterns: str | None) -> None:
+        if not patterns:
+            return
+
+        if any(pattern.upper() not in IndicatorType.names() for pattern in patterns.split(",")):
+            raise ProcessingError(
+                f"The provided pattern is not in the allowlist: {IndicatorType.names()}", 400
+            )
 
     @catch_mongodb_error
     def _add_status(self, api_root_name, status):

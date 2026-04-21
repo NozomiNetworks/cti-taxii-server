@@ -1,5 +1,6 @@
 import calendar
 import datetime as dt
+from enum import Enum
 import threading
 import uuid
 
@@ -10,6 +11,19 @@ from six import iteritems
 APPLICATION_INSTANCE = Flask("medallion")
 MEDIA_TYPE_TAXII_ANY = "application/taxii+json"
 MEDIA_TYPE_TAXII_V21 = "{media};version=2.1".format(media=MEDIA_TYPE_TAXII_ANY)
+
+
+class IndicatorType(Enum):
+    IPV4 = "ipv4"
+    DOMAIN = "domain"
+    URL = "url"
+    MD5 = "md5"
+    SHA1 = "sha1"
+    SHA256 = "sha256"
+
+    @staticmethod
+    def names() -> list[str]:
+        return [v.name for v in IndicatorType]
 
 
 def cast_filter_match_version_to_dates(match_version: str) -> list[float]:
