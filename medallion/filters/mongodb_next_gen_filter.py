@@ -39,6 +39,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
             return DESCENDING
 
         return ASCENDING
+
     def process_manifests_next_gen_filter(self, allowed: tuple[str]) -> tuple[list[dict], tuple[str, str] | None]:
         results, _next = self._process_objects_next_gen_filter_raw(allowed)
 
