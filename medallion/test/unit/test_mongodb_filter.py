@@ -12,7 +12,7 @@ class TestMongoDBFilter:
             (IndicatorType.IPV4, r"\[ipv4\-addr:value\ ="),
             (IndicatorType.DOMAIN, r"\[domain\-name:value\ ="),
             (IndicatorType.URL, r"\[url:value\ ="),
-            (IndicatorType.MD5, r"\[file:hashes\.'MD5'\ ="),
+            (IndicatorType.MD5, r"\[file:hashes\.MD5\ ="),
             (IndicatorType.SHA1, r"\[file:hashes\.'SHA\-1'\ ="),
             (IndicatorType.SHA256, r"\[file:hashes\.'SHA\-256'\ ="),
         ],
