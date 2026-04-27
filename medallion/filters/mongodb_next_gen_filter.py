@@ -291,8 +291,12 @@ class MongoDBNextGenFilter(MongoDBFilter):
                 sort=[('_manifest.date_added', self.sort), ('_id', self.sort)]
             ).limit(limit)
 
-        if self.sort == DESCENDING and "pattern" in pipeline:
-            query.hint("_collection_id_1_pattern_1__manifest.date_added_-1__id_-1")
+        inversed_index = "_collection_id_1_pattern_1__manifest.date_added_-1__id_-1"
+        if (
+            self.sort == DESCENDING and "pattern" in pipeline
+            and inversed_index in self.api_root_db.objects.index_information()
+        ):
+            query.hint(inversed_index)
 
         results = list(query)
 
