@@ -285,7 +285,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
             merged_date_added_filter[condition] = date_added
             pipeline["_manifest.date_added"] = merged_date_added_filter
 
-        # WIP: force mongodb to use the inversed index when filtering for pattern and the sort in descending
+        # WIP: force MongoDB to use the inverted index when filtering for pattern and the sort in descending
         query = self.api_root_db.objects.find(
                 pipeline,
                 sort=[('_manifest.date_added', self.sort), ('_id', self.sort)]
