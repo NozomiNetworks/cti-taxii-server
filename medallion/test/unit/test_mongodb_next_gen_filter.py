@@ -390,9 +390,9 @@ class TestMongoDBNextGenFilterIndexSelection:
 
         # Mock the query result chain: find() -> limit() -> (list after list() is called)
         mock_query = MagicMock()
-        # Make limit() return self (for chaining) and then when list() is called, return the results
+        # Make limit() return self (for chaining) and configure iteration for list()
         mock_query.limit.return_value = mock_query
-        mock_query.__iter__ = lambda self: iter([
+        mock_query.__iter__.return_value = iter([
             {"_id": ObjectId(), "_manifest": {"date_added": "2024-01-01T00:00:00.000Z"}},
         ])
         # Make hint() return self for chaining
@@ -417,7 +417,7 @@ class TestMongoDBNextGenFilterIndexSelection:
 
         pipeline = {
             "pattern": {"$regex": self._build_pattern_regex(IndicatorType.URL)},
-            "collection_id": {"$eq": "50c8f051-debf-4704-b05c-935d84d38426"},
+            "_collection_id": {"$eq": "50c8f051-debf-4704-b05c-935d84d38426"},
         }
 
         mongodb_nextgen_filter._get_sorted_results_with_next_limit_on_objects(pipeline, 10)
