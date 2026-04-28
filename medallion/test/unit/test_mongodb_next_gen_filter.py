@@ -1,5 +1,5 @@
 from copy import deepcopy
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from bson import ObjectId
 from pymongo import ASCENDING, DESCENDING
@@ -345,13 +345,11 @@ class TestMongoDBNextGenFilterIndexSelection:
     )
     def test_get_index_by_pattern_nozomi(self, pattern, expected_index_attr):
         mongodb_nextgen_filter = self._build_filter()
-
         result = mongodb_nextgen_filter._get_index_by_pattern_nozomi(pattern.lower())
-
         assert result == getattr(mongodb_nextgen_filter, expected_index_attr)
 
     @pytest.mark.parametrize(
-        "collection_id,pattern,expected_index_attr",
+        "_collection_id,pattern,expected_index_attr",
         [
             (
                 "50c8f051-debf-4704-b05c-935d84d38426",
@@ -370,14 +368,9 @@ class TestMongoDBNextGenFilterIndexSelection:
             ),
         ],
     )
-    def test_get_index_by_pattern_collection(self, collection_id, pattern, expected_index_attr):
+    def test_get_index_by_pattern_collection(self, _collection_id, pattern, expected_index_attr):
         mongodb_nextgen_filter = self._build_filter()
-
-        if isinstance(pattern, IndicatorType):
-            pattern = self._build_pattern_regex(pattern)
-
-        result = mongodb_nextgen_filter._get_index_by_pattern_collection(pattern.lower(), collection_id.lower())
-
+        result = mongodb_nextgen_filter._get_index_by_pattern_collection(pattern.lower(), _collection_id.lower())
         assert result == getattr(mongodb_nextgen_filter, expected_index_attr)
 
     def test_sorted_results_calls_hint_when_index_exists_descending_mandiant_pattern(self):
@@ -449,12 +442,12 @@ class TestMongoDBNextGenFilterIndexSelection:
         # Mock index_information to return a dict containing the big_cardinality index
         api_root_db.objects.index_information.return_value = {
             "_id_": {"key": [("_id", 1)]},
-            mongodb_nextgen_filter._inverted_index_big_cardinality: {"key": [("collection_id", 1)]},
+            mongodb_nextgen_filter._inverted_index_big_cardinality: {"key": [("_collection_id", 1)]},
         }
 
         pipeline = {
             "pattern": {"$regex": self._build_pattern_regex(IndicatorType.SHA256)},
-            "collection_id": {"$eq": "e6e67021-04f1-485d-ac3e-b2c4b441743e"},
+            "_collection_id": {"$eq": "e6e67021-04f1-485d-ac3e-b2c4b441743e"},
         }
 
         mongodb_nextgen_filter._get_sorted_results_with_next_limit_on_objects(pipeline, 10)
@@ -494,7 +487,7 @@ class TestMongoDBNextGenFilterIndexSelection:
 
         pipeline = {
             "pattern": {"$regex": self._build_pattern_regex(IndicatorType.URL)},
-            "collection_id": {"$eq": "50c8f051-debf-4704-b05c-935d84d38426"},
+            "_collection_id": {"$eq": "50c8f051-debf-4704-b05c-935d84d38426"},
         }
 
         mongodb_nextgen_filter._get_sorted_results_with_next_limit_on_objects(pipeline, 10)
@@ -510,7 +503,7 @@ class TestMongoDBNextGenFilterIndexSelection:
         mock_query = MagicMock()
         # Make limit() return self (for chaining) and then when list() is called, return the results
         mock_query.limit.return_value = mock_query
-        mock_query.__iter__ = lambda self: iter([
+        mock_query.__iter__.return_value = iter([
             {"_id": ObjectId(), "_manifest": {"date_added": "2024-01-01T00:00:00.000Z"}},
         ])
         # Make hint() return self for chaining
