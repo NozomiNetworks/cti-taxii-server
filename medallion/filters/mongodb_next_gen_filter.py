@@ -3,6 +3,7 @@ from pymongo import ASCENDING, DESCENDING
 from pymongo.synchronous.database import Database
 
 from ..common import datetime_to_float, string_to_datetime
+from ..taxii_config_manager import TaxiiConfigManager
 from .mongodb_filter import MongoDBFilter
 
 
@@ -26,8 +27,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
         self.sort = self._get_sort_direction(filter_args.get("sort"))
         self._inverted_index_big_cardinality = "_collection_id_1__manifest.date_added_-1__id_-1_pattern_1"
         self._inverted_index_small_cardinality = "_collection_id_1_pattern_1__manifest.date_added_-1__id_-1"
-        self._mandiant_collection_id = "50c8f051-debf-4704-b05c-935d84d38426"
-        self._nozomi_collection_id = "e6e67021-04f1-485d-ac3e-b2c4b441743e"
+        self._current_taxii_config = TaxiiConfigManager()
 
     @staticmethod
     def _get_sort_direction(sort_value: str | None) -> int:
@@ -299,7 +299,7 @@ class MongoDBNextGenFilter(MongoDBFilter):
             (
                 selected_index := self._get_index_by_pattern_collection(
                     pipeline["pattern"]["$regex"].lower(),
-                    pipeline["collection_id"]["$eq"].lower()
+                    pipeline["_collection_id"]["$eq"].lower()
                 )
             ) in self.api_root_db.objects.index_information()
         ):
@@ -325,11 +325,11 @@ class MongoDBNextGenFilter(MongoDBFilter):
         return results
 
     def _get_index_by_pattern_collection(self, pattern: str, collection_id: str) -> str:
-        match collection_id:
-            case self._mandiant_collection_id:
-                return self._get_index_by_pattern_mandiant(pattern)
-            case self._nozomi_collection_id:
-                return self._get_index_by_pattern_nozomi(pattern)
+        if collection_id == self._current_taxii_config.get_mandiant_collection_id():
+            return self._get_index_by_pattern_mandiant(pattern)
+
+        if collection_id == self._current_taxii_config.get_nozomi_networks_collection_id():
+            return self._get_index_by_pattern_nozomi(pattern)
 
         # Default case for other collections not in the expected IDs
         return self._inverted_index_small_cardinality

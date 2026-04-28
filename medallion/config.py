@@ -64,6 +64,7 @@ class _LazyJSONDumper(object):
 @environ.config(prefix="TAXII")
 class TAXIIConfig(object):
     max_page_size = environ.var(None, converter=lambda i: int(i) if i else i)
+    custom_collections = environ.var({})
 
 
 @environ.config(prefix="MEDALLION")

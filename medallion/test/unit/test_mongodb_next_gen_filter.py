@@ -1,5 +1,5 @@
 from copy import deepcopy
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from bson import ObjectId
 from pymongo import ASCENDING, DESCENDING
@@ -298,6 +298,14 @@ class TestMongoDBNextGenFilterNextPaginationFallback:
 
 
 class TestMongoDBNextGenFilterIndexSelection:
+
+    @pytest.fixture(autouse=True, scope="class")
+    def mock_taxii_config(self):
+        taxii_config_mock = MagicMock()
+        taxii_config_mock.get_mandiant_collection_id.return_value = "50c8f051-debf-4704-b05c-935d84d38426"
+        taxii_config_mock.get_nozomi_networks_collection_id.return_value = "e6e67021-04f1-485d-ac3e-b2c4b441743e"
+        with patch("medallion.filters.mongodb_next_gen_filter.TaxiiConfigManager", return_value=taxii_config_mock):
+            yield
 
     @staticmethod
     def _build_filter() -> MongoDBNextGenFilter:
