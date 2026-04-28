@@ -24,6 +24,8 @@ class MongoDBNextGenFilter(MongoDBFilter):
         self.limit = record.get("limit")
         self.next = record.get("next")
         self.sort = self._get_sort_direction(filter_args.get("sort"))
+        self._inverted_index_big_cardinality = "_collection_id_1__manifest.date_added_-1__id_-1_pattern_1"
+        self._inverted_index_small_cardinality = "_collection_id_1_pattern_1__manifest.date_added_-1__id_-1"
 
     @staticmethod
     def _get_sort_direction(sort_value: str | None) -> int:
@@ -291,12 +293,15 @@ class MongoDBNextGenFilter(MongoDBFilter):
                 sort=[('_manifest.date_added', self.sort), ('_id', self.sort)]
             ).limit(limit)
 
-        inversed_index = "_collection_id_1__manifest.date_added_-1__id_-1_pattern_1"
-        if (
-            self.sort == DESCENDING and "pattern" in pipeline
-            and inversed_index in self.api_root_db.objects.index_information()
+        if self.sort == DESCENDING and "pattern" in pipeline and (
+            (
+                selected_index := self._get_index_by_pattern_collection(
+                    pipeline["pattern"]["$regex"].lower(),
+                    pipeline["collection_id"]["$eq"].lower()
+                )
+            ) in self.api_root_db.objects.index_information()
         ):
-            query.hint(inversed_index)
+            query.hint(selected_index)
 
         results = list(query)
 
@@ -316,3 +321,24 @@ class MongoDBNextGenFilter(MongoDBFilter):
                     return remaining_results
 
         return results
+
+    def _get_index_by_pattern_collection(self, pattern: str, collection_id: str) -> str:
+        match collection_id:
+            case "50c8f051-debf-4704-b05c-935d84d38426":
+                return self._get_index_by_pattern_mandiant(pattern)
+            case "e6e67021-04f1-485d-ac3e-b2c4b441743e":
+                return self._get_index_by_pattern_nozomi(pattern)
+
+        return self._inverted_index_small_cardinality
+
+    def _get_index_by_pattern_mandiant(self, pattern: str) -> str:
+        if any(pattern_type in pattern for pattern_type in ("url", "domain", "md5")):
+            return self._inverted_index_big_cardinality
+
+        return self._inverted_index_small_cardinality
+
+    def _get_index_by_pattern_nozomi(self, pattern: str) -> str:
+        if "sha256" in pattern:
+            return self._inverted_index_big_cardinality
+
+        return self._inverted_index_small_cardinality

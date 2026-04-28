@@ -1,6 +1,7 @@
 from copy import deepcopy
 from unittest.mock import MagicMock
 
+import pytest
 from bson import ObjectId
 from pymongo import ASCENDING, DESCENDING
 
@@ -292,3 +293,74 @@ class TestMongoDBNextGenFilterNextPaginationFallback:
             "$gt": "2024-01-01T00:00:00.000Z",
             "$lte": "2024-01-03T00:00:00.000Z",
         }
+
+
+class TestMongoDBNextGenFilterIndexSelection:
+
+    @staticmethod
+    def _build_filter() -> MongoDBNextGenFilter:
+        return MongoDBNextGenFilter(
+            filter_args={},
+            basic_filter={},
+            allowed=(),
+            api_root_db=MagicMock(),
+            record={"limit": 1, "next": None},
+        )
+
+    @pytest.mark.parametrize(
+        "pattern,expected_index_attr",
+        [
+            ("[url:value = 'https://example.com']", "_inverted_index_big_cardinality"),
+            ("[domain-name:value = 'example.com']", "_inverted_index_big_cardinality"),
+            ("[file:hashes.'MD5' = 'abc']", "_inverted_index_big_cardinality"),
+            ("[ipv4-addr:value = '1.2.3.4']", "_inverted_index_small_cardinality"),
+        ],
+    )
+    def test_get_index_by_pattern_mandiant(self, pattern, expected_index_attr):
+        mongodb_nextgen_filter = self._build_filter()
+
+        result = mongodb_nextgen_filter._get_index_by_pattern_mandiant(pattern.lower())
+
+        assert result == getattr(mongodb_nextgen_filter, expected_index_attr)
+
+    @pytest.mark.parametrize(
+        "pattern,expected_index_attr",
+        [
+            ("[x-custom:sha256 = 'abc']", "_inverted_index_big_cardinality"),
+            ("[file:hashes.'SHA-1' = 'abc']", "_inverted_index_small_cardinality"),
+        ],
+    )
+    def test_get_index_by_pattern_nozomi(self, pattern, expected_index_attr):
+        mongodb_nextgen_filter = self._build_filter()
+
+        result = mongodb_nextgen_filter._get_index_by_pattern_nozomi(pattern.lower())
+
+        assert result == getattr(mongodb_nextgen_filter, expected_index_attr)
+
+    @pytest.mark.parametrize(
+        "collection_id,pattern,expected_index_attr",
+        [
+            (
+                "50c8f051-debf-4704-b05c-935d84d38426",
+                "[url:value = 'https://example.com']",
+                "_inverted_index_big_cardinality",
+            ),
+            (
+                "e6e67021-04f1-485d-ac3e-b2c4b441743e",
+                "[x-custom:sha256 = 'abc']",
+                "_inverted_index_big_cardinality",
+            ),
+            (
+                "unknown-collection",
+                "[url:value = 'https://example.com']",
+                "_inverted_index_small_cardinality",
+            ),
+        ],
+    )
+    def test_get_index_by_pattern_collection(self, collection_id, pattern, expected_index_attr):
+        mongodb_nextgen_filter = self._build_filter()
+
+        result = mongodb_nextgen_filter._get_index_by_pattern_collection(pattern.lower(), collection_id.lower())
+
+        assert result == getattr(mongodb_nextgen_filter, expected_index_attr)
+
