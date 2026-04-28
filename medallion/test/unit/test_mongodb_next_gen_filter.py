@@ -308,7 +308,6 @@ class TestMongoDBNextGenFilterNextPaginationFallback:
 
 class TestMongoDBNextGenFilterIndexSelection:
 
-
     @staticmethod
     def _build_filter() -> MongoDBNextGenFilter:
         return MongoDBNextGenFilter(
@@ -327,12 +326,18 @@ class TestMongoDBNextGenFilterIndexSelection:
     @pytest.mark.parametrize(
         "pattern,expected_index_attr",
         [
-            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.URL), "_inverted_index_big_cardinality"),
-            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.DOMAIN), "_inverted_index_big_cardinality"),
-            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.MD5), "_inverted_index_big_cardinality"),
-            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.IPV4), "_inverted_index_small_cardinality"),
-            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.SHA256), "_inverted_index_small_cardinality"),
-            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.SHA1), "_inverted_index_small_cardinality"),
+            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.URL),
+             "_inverted_index_big_cardinality"),
+            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.DOMAIN),
+             "_inverted_index_big_cardinality"),
+            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.MD5),
+             "_inverted_index_big_cardinality"),
+            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.IPV4),
+             "_inverted_index_small_cardinality"),
+            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.SHA256),
+             "_inverted_index_small_cardinality"),
+            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.SHA1),
+             "_inverted_index_small_cardinality"),
         ],
     )
     def test_get_index_by_pattern_mandiant(self, pattern, expected_index_attr):
@@ -345,12 +350,18 @@ class TestMongoDBNextGenFilterIndexSelection:
     @pytest.mark.parametrize(
         "pattern,expected_index_attr",
         [
-            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.SHA256), "_inverted_index_big_cardinality"),
-            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.URL), "_inverted_index_small_cardinality"),
-            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.DOMAIN), "_inverted_index_small_cardinality"),
-            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.MD5), "_inverted_index_small_cardinality"),
-            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.IPV4), "_inverted_index_small_cardinality"),
-            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.SHA1), "_inverted_index_small_cardinality"),
+            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.SHA256),
+             "_inverted_index_big_cardinality"),
+            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.URL),
+             "_inverted_index_small_cardinality"),
+            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.DOMAIN),
+             "_inverted_index_small_cardinality"),
+            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.MD5),
+             "_inverted_index_small_cardinality"),
+            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.IPV4),
+             "_inverted_index_small_cardinality"),
+            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.SHA1),
+             "_inverted_index_small_cardinality"),
         ],
     )
     def test_get_index_by_pattern_nozomi(self, pattern, expected_index_attr):
@@ -362,19 +373,19 @@ class TestMongoDBNextGenFilterIndexSelection:
         "_collection_id,pattern,expected_index_attr",
         [
             (
-                "50c8f051-debf-4704-b05c-935d84d38426",
-                MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.URL),
-                "_inverted_index_big_cardinality",
+                    "50c8f051-debf-4704-b05c-935d84d38426",
+                    MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.URL),
+                    "_inverted_index_big_cardinality",
             ),
             (
-                "e6e67021-04f1-485d-ac3e-b2c4b441743e",
-                MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.SHA256),
-                "_inverted_index_big_cardinality",
+                    "e6e67021-04f1-485d-ac3e-b2c4b441743e",
+                    MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.SHA256),
+                    "_inverted_index_big_cardinality",
             ),
             (
-                "unknown-collection",
-                MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.URL),
-                "_inverted_index_small_cardinality",
+                    "unknown-collection",
+                    MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.URL),
+                    "_inverted_index_small_cardinality",
             ),
         ],
     )
