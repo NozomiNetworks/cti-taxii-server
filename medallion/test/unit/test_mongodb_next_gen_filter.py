@@ -1,4 +1,3 @@
-import re
 from copy import deepcopy
 from unittest.mock import MagicMock
 
