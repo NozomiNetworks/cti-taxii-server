@@ -464,6 +464,21 @@ def test_get_objects_pattern_type_invalid(backend):
     assert r.content_type == MEDIA_TYPE_TAXII_V21
 
 
+def test_get_objects_sort_and_filter(backend):
+    for endpoint in (
+        test.MANDIANT_COLLECTION_EP,
+        test.GET_OBJECTS_EP,
+        test.ADD_OBJECTS_EP,
+    ):
+        r = backend.client.get(
+            endpoint + "?match[pattern]=url&sort=desc",
+            headers=backend.nozomi_auth_headers,
+        )
+
+        assert r.status_code == 200
+        assert r.content_type == MEDIA_TYPE_TAXII_V21
+
+
 def get_objects_by_version(backend, filter):
     r = backend.client.get(
         test.GET_OBJECTS_EP + filter,
