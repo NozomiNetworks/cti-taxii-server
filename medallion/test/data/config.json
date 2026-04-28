@@ -11,7 +11,7 @@
   },
   "taxii": {
     "max_page_size": 100,
-    "custom_collections": {
+    "collections": {
       "mandiant": {
         "id": "54993447-4d7e-4f70-b94d-d7f33742ee63"
       },
