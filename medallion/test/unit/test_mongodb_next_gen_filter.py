@@ -1,5 +1,5 @@
 from copy import deepcopy
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from bson import ObjectId
 from pymongo import ASCENDING, DESCENDING
