@@ -530,12 +530,12 @@ class TestMongoDBNextGenFilterIndexSelection:
         # Mock index_information
         api_root_db.objects.index_information.return_value = {
             "_id_": {"key": [("_id", 1)]},
-            mongodb_nextgen_filter._inverted_index_big_cardinality: {"key": [("collection_id", 1)]},
+            mongodb_nextgen_filter._inverted_index_big_cardinality: {"key": [("_collection_id", 1)]},
         }
 
         pipeline = {
             "pattern": {"$regex": self._build_pattern_regex(IndicatorType.URL)},
-            "collection_id": {"$eq": "50c8f051-debf-4704-b05c-935d84d38426"},
+            "_collection_id": {"$eq": "50c8f051-debf-4704-b05c-935d84d38426"},
         }
 
         mongodb_nextgen_filter._get_sorted_results_with_next_limit_on_objects(pipeline, 10)
