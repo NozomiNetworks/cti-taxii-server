@@ -346,9 +346,6 @@ class TestMongoDBNextGenFilterIndexSelection:
     def test_get_index_by_pattern_nozomi(self, pattern, expected_index_attr):
         mongodb_nextgen_filter = self._build_filter()
 
-        if isinstance(pattern, IndicatorType):
-            pattern = self._build_pattern_regex(pattern)
-
         result = mongodb_nextgen_filter._get_index_by_pattern_nozomi(pattern.lower())
 
         assert result == getattr(mongodb_nextgen_filter, expected_index_attr)
