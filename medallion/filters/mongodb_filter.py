@@ -70,7 +70,8 @@ class MongoDBFilter(BasicFilter):
                 }
         return parameters
 
-    def _get_pattern_prefix_from_indicator_type(self, indicator_type: IndicatorType) -> str:
+    @staticmethod
+    def _get_pattern_prefix_from_indicator_type(indicator_type: IndicatorType) -> str:
         match indicator_type:
             case IndicatorType.IPV4:
                 regex = "[ipv4-addr:value ="

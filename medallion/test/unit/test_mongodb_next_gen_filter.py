@@ -1,3 +1,4 @@
+import re
 from copy import deepcopy
 from unittest.mock import MagicMock
 
@@ -5,6 +6,8 @@ from bson import ObjectId
 from pymongo import ASCENDING, DESCENDING
 import pytest
 
+from medallion.common import IndicatorType
+from medallion.filters.mongodb_filter import MongoDBFilter
 from medallion.filters.mongodb_next_gen_filter import MongoDBNextGenFilter
 
 
@@ -307,13 +310,20 @@ class TestMongoDBNextGenFilterIndexSelection:
             record={"limit": 1, "next": None},
         )
 
+    @staticmethod
+    def _build_pattern_regex(indicator_type: IndicatorType) -> str:
+        # Mirror MongoDBFilter._query_parameters output: '^' + escaped indicator prefix.
+        return f"^{MongoDBFilter._get_pattern_prefix_from_indicator_type(indicator_type)}"
+
     @pytest.mark.parametrize(
         "pattern,expected_index_attr",
         [
-            ("[url:value = 'https://example.com']", "_inverted_index_big_cardinality"),
-            ("[domain-name:value = 'example.com']", "_inverted_index_big_cardinality"),
-            ("[file:hashes.'MD5' = 'abc']", "_inverted_index_big_cardinality"),
-            ("[ipv4-addr:value = '1.2.3.4']", "_inverted_index_small_cardinality"),
+            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.URL), "_inverted_index_big_cardinality"),
+            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.DOMAIN), "_inverted_index_big_cardinality"),
+            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.MD5), "_inverted_index_big_cardinality"),
+            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.IPV4), "_inverted_index_small_cardinality"),
+            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.SHA256), "_inverted_index_small_cardinality"),
+            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.SHA1), "_inverted_index_small_cardinality"),
         ],
     )
     def test_get_index_by_pattern_mandiant(self, pattern, expected_index_attr):
@@ -326,12 +336,19 @@ class TestMongoDBNextGenFilterIndexSelection:
     @pytest.mark.parametrize(
         "pattern,expected_index_attr",
         [
-            ("[x-custom:sha256 = 'abc']", "_inverted_index_big_cardinality"),
-            ("[file:hashes.'SHA-1' = 'abc']", "_inverted_index_small_cardinality"),
+            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.SHA256), "_inverted_index_big_cardinality"),
+            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.URL), "_inverted_index_small_cardinality"),
+            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.DOMAIN), "_inverted_index_small_cardinality"),
+            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.MD5), "_inverted_index_small_cardinality"),
+            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.IPV4), "_inverted_index_small_cardinality"),
+            (MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.SHA1), "_inverted_index_small_cardinality"),
         ],
     )
     def test_get_index_by_pattern_nozomi(self, pattern, expected_index_attr):
         mongodb_nextgen_filter = self._build_filter()
+
+        if isinstance(pattern, IndicatorType):
+            pattern = self._build_pattern_regex(pattern)
 
         result = mongodb_nextgen_filter._get_index_by_pattern_nozomi(pattern.lower())
 
@@ -342,23 +359,26 @@ class TestMongoDBNextGenFilterIndexSelection:
         [
             (
                 "50c8f051-debf-4704-b05c-935d84d38426",
-                "[url:value = 'https://example.com']",
+                MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.URL),
                 "_inverted_index_big_cardinality",
             ),
             (
                 "e6e67021-04f1-485d-ac3e-b2c4b441743e",
-                "[x-custom:sha256 = 'abc']",
+                MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.SHA256),
                 "_inverted_index_big_cardinality",
             ),
             (
                 "unknown-collection",
-                "[url:value = 'https://example.com']",
+                MongoDBFilter._get_pattern_prefix_from_indicator_type(IndicatorType.URL),
                 "_inverted_index_small_cardinality",
             ),
         ],
     )
     def test_get_index_by_pattern_collection(self, collection_id, pattern, expected_index_attr):
         mongodb_nextgen_filter = self._build_filter()
+
+        if isinstance(pattern, IndicatorType):
+            pattern = self._build_pattern_regex(pattern)
 
         result = mongodb_nextgen_filter._get_index_by_pattern_collection(pattern.lower(), collection_id.lower())
 
@@ -396,7 +416,7 @@ class TestMongoDBNextGenFilterIndexSelection:
         }
 
         pipeline = {
-            "pattern": {"$regex": "[url:value = "},
+            "pattern": {"$regex": self._build_pattern_regex(IndicatorType.URL)},
             "collection_id": {"$eq": "50c8f051-debf-4704-b05c-935d84d38426"},
         }
 
@@ -437,7 +457,7 @@ class TestMongoDBNextGenFilterIndexSelection:
         }
 
         pipeline = {
-            "pattern": {"$regex": "[x-custom:sha256 = "},
+            "pattern": {"$regex": self._build_pattern_regex(IndicatorType.SHA256)},
             "collection_id": {"$eq": "e6e67021-04f1-485d-ac3e-b2c4b441743e"},
         }
 
@@ -477,7 +497,7 @@ class TestMongoDBNextGenFilterIndexSelection:
         }
 
         pipeline = {
-            "pattern": {"$regex": "[url:value = "},
+            "pattern": {"$regex": self._build_pattern_regex(IndicatorType.URL)},
             "collection_id": {"$eq": "50c8f051-debf-4704-b05c-935d84d38426"},
         }
 
@@ -518,7 +538,7 @@ class TestMongoDBNextGenFilterIndexSelection:
         }
 
         pipeline = {
-            "pattern": {"$regex": "[url:value = "},
+            "pattern": {"$regex": self._build_pattern_regex(IndicatorType.URL)},
             "collection_id": {"$eq": "50c8f051-debf-4704-b05c-935d84d38426"},
         }
 

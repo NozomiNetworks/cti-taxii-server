@@ -335,13 +335,13 @@ class MongoDBNextGenFilter(MongoDBFilter):
         return self._inverted_index_small_cardinality
 
     def _get_index_by_pattern_mandiant(self, pattern: str) -> str:
-        if any(pattern_type in pattern for pattern_type in ("url", "domain", "md5")):
+        if any(pattern_type in pattern.lower() for pattern_type in ("url", "domain", "md5")):
             return self._inverted_index_big_cardinality
 
         return self._inverted_index_small_cardinality
 
     def _get_index_by_pattern_nozomi(self, pattern: str) -> str:
-        if "sha256" in pattern:
+        if r"sha\-256" in pattern.lower():
             return self._inverted_index_big_cardinality
 
         return self._inverted_index_small_cardinality
