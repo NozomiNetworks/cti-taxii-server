@@ -411,7 +411,7 @@ class TestMongoDBNextGenFilterIndexSelection:
         # Mock index_information to return a dict containing the big_cardinality index
         api_root_db.objects.index_information.return_value = {
             "_id_": {"key": [("_id", 1)]},
-            mongodb_nextgen_filter._inverted_index_big_cardinality: {"key": [("collection_id", 1)]},
+            mongodb_nextgen_filter._inverted_index_big_cardinality: {"key": [("_collection_id", 1)]},
         }
 
         pipeline = {
