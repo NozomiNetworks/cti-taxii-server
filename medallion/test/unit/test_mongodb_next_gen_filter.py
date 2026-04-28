@@ -429,7 +429,7 @@ class TestMongoDBNextGenFilterIndexSelection:
         mock_query = MagicMock()
         # Make limit() return self (for chaining) and then when list() is called, return the results
         mock_query.limit.return_value = mock_query
-        mock_query.__iter__ = lambda self: iter([
+        mock_query.__iter__.return_value = iter([
             {"_id": ObjectId(), "_manifest": {"date_added": "2024-01-01T00:00:00.000Z"}},
         ])
         # Make hint() return self for chaining
