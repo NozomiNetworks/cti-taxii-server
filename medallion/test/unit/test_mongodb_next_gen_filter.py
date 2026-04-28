@@ -1,9 +1,9 @@
 from copy import deepcopy
 from unittest.mock import MagicMock
 
-import pytest
 from bson import ObjectId
 from pymongo import ASCENDING, DESCENDING
+import pytest
 
 from medallion.filters.mongodb_next_gen_filter import MongoDBNextGenFilter
 
@@ -363,4 +363,3 @@ class TestMongoDBNextGenFilterIndexSelection:
         result = mongodb_nextgen_filter._get_index_by_pattern_collection(pattern.lower(), collection_id.lower())
 
         assert result == getattr(mongodb_nextgen_filter, expected_index_attr)
-
