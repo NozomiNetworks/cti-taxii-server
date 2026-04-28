@@ -397,7 +397,7 @@ class TestMongoDBNextGenFilterIndexSelection:
 
         pipeline = {
             "pattern": {"$regex": "[url:value = "},
-            "collection_id": {"$eq": "50c8f051-debf-4704-b05c-935d84d38426"},
+            "_collection_id": {"$eq": "50c8f051-debf-4704-b05c-935d84d38426"},
         }
 
         mongodb_nextgen_filter._get_sorted_results_with_next_limit_on_objects(pipeline, 10)
