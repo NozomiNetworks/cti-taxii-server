@@ -363,3 +363,207 @@ class TestMongoDBNextGenFilterIndexSelection:
         result = mongodb_nextgen_filter._get_index_by_pattern_collection(pattern.lower(), collection_id.lower())
 
         assert result == getattr(mongodb_nextgen_filter, expected_index_attr)
+
+    def test_sorted_results_calls_hint_when_index_exists_descending_mandiant_pattern(self):
+        """Test that hint() is called when selected index exists in index_information() for Mandiant pattern."""
+        api_root_db = MagicMock()
+
+        # Mock the query result chain: find() -> limit() -> (list after list() is called)
+        mock_query = MagicMock()
+        # Make limit() return self (for chaining) and then when list() is called, return the results
+        mock_query.limit.return_value = mock_query
+        mock_query.__iter__ = lambda self: iter([
+            {"_id": ObjectId(), "_manifest": {"date_added": "2024-01-01T00:00:00.000Z"}},
+        ])
+        # Make hint() return self for chaining
+        mock_query.hint.return_value = mock_query
+
+        # Mock find() to return the query object
+        api_root_db.objects.find.return_value = mock_query
+
+        mongodb_nextgen_filter = MongoDBNextGenFilter(
+            filter_args={"sort": "desc"},
+            basic_filter={},
+            allowed=(),
+            api_root_db=api_root_db,
+            record={"limit": 10, "next": None},
+        )
+
+        # Mock index_information to return a dict containing the big_cardinality index
+        api_root_db.objects.index_information.return_value = {
+            "_id_": {"key": [("_id", 1)]},
+            mongodb_nextgen_filter._inverted_index_big_cardinality: {"key": [("collection_id", 1)]},
+        }
+
+        pipeline = {
+            "pattern": {"$regex": "[url:value = "},
+            "collection_id": {"$eq": "50c8f051-debf-4704-b05c-935d84d38426"},
+        }
+
+        mongodb_nextgen_filter._get_sorted_results_with_next_limit_on_objects(pipeline, 10)
+
+        # Verify hint() was called with the expected index
+        mock_query.hint.assert_called_once_with(mongodb_nextgen_filter._inverted_index_big_cardinality)
+
+    def test_sorted_results_calls_hint_when_index_exists_descending_nozomi_pattern(self):
+        """Test that hint() is called for Nozomi collection with sha256 pattern."""
+        api_root_db = MagicMock()
+
+        # Mock the query result chain: find() -> limit() -> (list after list() is called)
+        mock_query = MagicMock()
+        # Make limit() return self (for chaining) and then when list() is called, return the results
+        mock_query.limit.return_value = mock_query
+        mock_query.__iter__ = lambda self: iter([
+            {"_id": ObjectId(), "_manifest": {"date_added": "2024-01-01T00:00:00.000Z"}},
+        ])
+        # Make hint() return self for chaining
+        mock_query.hint.return_value = mock_query
+
+        # Mock find() to return the query object
+        api_root_db.objects.find.return_value = mock_query
+
+        mongodb_nextgen_filter = MongoDBNextGenFilter(
+            filter_args={"sort": "desc"},
+            basic_filter={},
+            allowed=(),
+            api_root_db=api_root_db,
+            record={"limit": 10, "next": None},
+        )
+
+        # Mock index_information to return a dict containing the big_cardinality index
+        api_root_db.objects.index_information.return_value = {
+            "_id_": {"key": [("_id", 1)]},
+            mongodb_nextgen_filter._inverted_index_big_cardinality: {"key": [("collection_id", 1)]},
+        }
+
+        pipeline = {
+            "pattern": {"$regex": "[x-custom:sha256 = "},
+            "collection_id": {"$eq": "e6e67021-04f1-485d-ac3e-b2c4b441743e"},
+        }
+
+        mongodb_nextgen_filter._get_sorted_results_with_next_limit_on_objects(pipeline, 10)
+
+        # Verify hint() was called with the expected index
+        mock_query.hint.assert_called_once_with(mongodb_nextgen_filter._inverted_index_big_cardinality)
+
+    def test_sorted_results_does_not_call_hint_when_index_missing(self):
+        """Test that hint() is NOT called when selected index is not in index_information()."""
+        api_root_db = MagicMock()
+
+        # Mock the query result chain: find() -> limit() -> (list after list() is called)
+        mock_query = MagicMock()
+        # Make limit() return self (for chaining) and then when list() is called, return the results
+        mock_query.limit.return_value = mock_query
+        mock_query.__iter__ = lambda self: iter([
+            {"_id": ObjectId(), "_manifest": {"date_added": "2024-01-01T00:00:00.000Z"}},
+        ])
+        # Make hint() return self for chaining
+        mock_query.hint.return_value = mock_query
+
+        # Mock find() to return the query object
+        api_root_db.objects.find.return_value = mock_query
+
+        mongodb_nextgen_filter = MongoDBNextGenFilter(
+            filter_args={"sort": "desc"},
+            basic_filter={},
+            allowed=(),
+            api_root_db=api_root_db,
+            record={"limit": 10, "next": None},
+        )
+
+        # Mock index_information to return a dict WITHOUT the selected index
+        api_root_db.objects.index_information.return_value = {
+            "_id_": {"key": [("_id", 1)]},
+        }
+
+        pipeline = {
+            "pattern": {"$regex": "[url:value = "},
+            "collection_id": {"$eq": "50c8f051-debf-4704-b05c-935d84d38426"},
+        }
+
+        mongodb_nextgen_filter._get_sorted_results_with_next_limit_on_objects(pipeline, 10)
+
+        # Verify hint() was NOT called
+        mock_query.hint.assert_not_called()
+
+    def test_sorted_results_does_not_call_hint_when_sort_is_ascending(self):
+        """Test that hint() is NOT called when sort is ASCENDING (only applies to DESCENDING)."""
+        api_root_db = MagicMock()
+
+        # Mock the query result chain: find() -> limit() -> (list after list() is called)
+        mock_query = MagicMock()
+        # Make limit() return self (for chaining) and then when list() is called, return the results
+        mock_query.limit.return_value = mock_query
+        mock_query.__iter__ = lambda self: iter([
+            {"_id": ObjectId(), "_manifest": {"date_added": "2024-01-01T00:00:00.000Z"}},
+        ])
+        # Make hint() return self for chaining
+        mock_query.hint.return_value = mock_query
+
+        # Mock find() to return the query object
+        api_root_db.objects.find.return_value = mock_query
+
+        mongodb_nextgen_filter = MongoDBNextGenFilter(
+            filter_args={"sort": "asc"},
+            basic_filter={},
+            allowed=(),
+            api_root_db=api_root_db,
+            record={"limit": 10, "next": None},
+        )
+
+        # Mock index_information
+        api_root_db.objects.index_information.return_value = {
+            "_id_": {"key": [("_id", 1)]},
+            mongodb_nextgen_filter._inverted_index_big_cardinality: {"key": [("collection_id", 1)]},
+        }
+
+        pipeline = {
+            "pattern": {"$regex": "[url:value = "},
+            "collection_id": {"$eq": "50c8f051-debf-4704-b05c-935d84d38426"},
+        }
+
+        mongodb_nextgen_filter._get_sorted_results_with_next_limit_on_objects(pipeline, 10)
+
+        # Verify hint() was NOT called because sort is ASCENDING
+        mock_query.hint.assert_not_called()
+
+    def test_sorted_results_does_not_call_hint_when_no_pattern_in_pipeline(self):
+        """Test that hint() is NOT called when pattern is not in the pipeline."""
+        api_root_db = MagicMock()
+
+        # Mock the query result chain: find() -> limit() -> (list after list() is called)
+        mock_query = MagicMock()
+        # Make limit() return self (for chaining) and then when list() is called, return the results
+        mock_query.limit.return_value = mock_query
+        mock_query.__iter__ = lambda self: iter([
+            {"_id": ObjectId(), "_manifest": {"date_added": "2024-01-01T00:00:00.000Z"}},
+        ])
+        # Make hint() return self for chaining
+        mock_query.hint.return_value = mock_query
+
+        # Mock find() to return the query object
+        api_root_db.objects.find.return_value = mock_query
+
+        mongodb_nextgen_filter = MongoDBNextGenFilter(
+            filter_args={"sort": "desc"},
+            basic_filter={},
+            allowed=(),
+            api_root_db=api_root_db,
+            record={"limit": 10, "next": None},
+        )
+
+        # Mock index_information
+        api_root_db.objects.index_information.return_value = {
+            "_id_": {"key": [("_id", 1)]},
+            mongodb_nextgen_filter._inverted_index_big_cardinality: {"key": [("collection_id", 1)]},
+        }
+
+        # Pipeline without "pattern" key
+        pipeline = {
+            "collection_id": {"$eq": "50c8f051-debf-4704-b05c-935d84d38426"},
+        }
+
+        mongodb_nextgen_filter._get_sorted_results_with_next_limit_on_objects(pipeline, 10)
+
+        # Verify hint() was NOT called because pattern is missing
+        mock_query.hint.assert_not_called()
