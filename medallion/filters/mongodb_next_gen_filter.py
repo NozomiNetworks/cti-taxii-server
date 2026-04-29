@@ -3,6 +3,7 @@ from pymongo import ASCENDING, DESCENDING
 from pymongo.synchronous.database import Database
 
 from ..common import datetime_to_float, string_to_datetime
+from ..taxii_config_manager import TaxiiConfigManager
 from .mongodb_filter import MongoDBFilter
 
 
@@ -24,6 +25,9 @@ class MongoDBNextGenFilter(MongoDBFilter):
         self.limit = record.get("limit")
         self.next = record.get("next")
         self.sort = self._get_sort_direction(filter_args.get("sort"))
+        self._inverted_index_big_cardinality = "_collection_id_1__manifest.date_added_-1__id_-1_pattern_1"
+        self._inverted_index_small_cardinality = "_collection_id_1_pattern_1__manifest.date_added_-1__id_-1"
+        self._current_taxii_config = TaxiiConfigManager()
 
     @staticmethod
     def _get_sort_direction(sort_value: str | None) -> int:
@@ -291,12 +295,15 @@ class MongoDBNextGenFilter(MongoDBFilter):
                 sort=[('_manifest.date_added', self.sort), ('_id', self.sort)]
             ).limit(limit)
 
-        inversed_index = "_collection_id_1__manifest.date_added_-1__id_-1_pattern_1"
-        if (
-            self.sort == DESCENDING and "pattern" in pipeline
-            and inversed_index in self.api_root_db.objects.index_information()
+        if self.sort == DESCENDING and "pattern" in pipeline and (
+            (
+                selected_index := self._get_index_by_pattern_collection(
+                    pipeline["pattern"]["$regex"].lower(),
+                    pipeline["_collection_id"]["$eq"].lower()
+                )
+            ) in self.api_root_db.objects.index_information()
         ):
-            query.hint(inversed_index)
+            query.hint(selected_index)
 
         results = list(query)
 
@@ -316,3 +323,25 @@ class MongoDBNextGenFilter(MongoDBFilter):
                     return remaining_results
 
         return results
+
+    def _get_index_by_pattern_collection(self, pattern: str, collection_id: str) -> str:
+        if collection_id == self._current_taxii_config.get_mandiant_collection_id():
+            return self._get_index_by_pattern_mandiant(pattern)
+
+        if collection_id == self._current_taxii_config.get_nozomi_networks_collection_id():
+            return self._get_index_by_pattern_nozomi(pattern)
+
+        # Default case for other collections not in the expected IDs
+        return self._inverted_index_small_cardinality
+
+    def _get_index_by_pattern_mandiant(self, pattern: str) -> str:
+        if any(pattern_type in pattern.lower() for pattern_type in ("url", "domain", "md5")):
+            return self._inverted_index_big_cardinality
+
+        return self._inverted_index_small_cardinality
+
+    def _get_index_by_pattern_nozomi(self, pattern: str) -> str:
+        if r"sha\-256" in pattern.lower():
+            return self._inverted_index_big_cardinality
+
+        return self._inverted_index_small_cardinality

@@ -10,6 +10,14 @@
     "nozominetworks": "test"
   },
   "taxii": {
-      "max_page_size": 100
+    "max_page_size": 100,
+    "collections": {
+      "mandiant": {
+        "id": "54993447-4d7e-4f70-b94d-d7f33742ee63"
+      },
+      "nozomi_networks": {
+        "id": "91a7b528-80eb-42ed-a74d-c6fbd5a26116"
+        }
+    }
   }
 }
