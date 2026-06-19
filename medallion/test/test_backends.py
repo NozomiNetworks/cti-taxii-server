@@ -2239,7 +2239,7 @@ def test_update_user_admin_user_success(backend, nozomi_json_content_headers):
         test.USERS_EP + "user2/",
         data=json.dumps({
             "is_admin": True,
-            "license": "mandiant",
+            "license": "nozomi",
             "company_name": "Acme",
             "contact_name": "Jane Doe"
         }),
@@ -2248,7 +2248,7 @@ def test_update_user_admin_user_success(backend, nozomi_json_content_headers):
     assert r.status_code == 200
     assert r.json['_id'] == 'user2'
     assert r.json['is_admin'] is True
-    assert r.json['license'] == 'mandiant'
+    assert r.json['license'] == 'nozomi'
     assert r.json['updated'] is not None
     assert r.json['company_name'] == 'Acme'
     assert r.json['contact_name'] == 'Jane Doe'
@@ -2259,14 +2259,14 @@ def test_update_user_admin_user_success_2(backend, nozomi_json_content_headers):
         test.USERS_EP + "user2/",
         data=json.dumps({
             "is_admin": True,
-            "license": "mandiant",
+            "license": "nozomi",
         }),
         headers=nozomi_json_content_headers,
     )
     assert r.status_code == 200
     assert r.json['_id'] == 'user2'
     assert r.json['is_admin'] is True
-    assert r.json['license'] == 'mandiant'
+    assert r.json['license'] == 'nozomi'
     assert r.json['updated'] is not None
     assert r.json['company_name'] == 'Acme'
     assert r.json['contact_name'] == 'Jane Doe'
