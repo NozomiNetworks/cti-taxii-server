@@ -152,8 +152,7 @@ def delete_update_user(user_id):
         "company_name": body.get("company_name", ""),
         "contact_name": body.get("contact_name", ""),
         "is_admin": body.get("is_admin", False),
-        "license": body.get("license", "nozomi"),
-        "password": get_db_password_from_request(body),
+        "license": body.get("license", "nozomi")
     }
 
     current_app.auth_backend.update_user(user_id, user_info)
