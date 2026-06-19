@@ -148,12 +148,15 @@ def delete_update_user(user_id):
             mimetype=MEDIA_TYPE_TAXII_V21,
         )
 
+    # Only update the fields that are explicitly provided in the request body,
+    # leaving any omitted field untouched.
     user_info = {
-        "company_name": body.get("company_name", ""),
-        "contact_name": body.get("contact_name", ""),
-        "is_admin": body.get("is_admin", False),
-        "license": body.get("license", "nozomi")
+        "updated": datetime_to_string(datetime.datetime.now(datetime.UTC)),
     }
+
+    for field in ("company_name", "contact_name", "is_admin", "license"):
+        if field in body:
+            user_info[field] = body[field]
 
     current_app.auth_backend.update_user(user_id, user_info)
     user = current_app.auth_backend.get_user_by_username(user_id)
