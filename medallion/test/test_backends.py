@@ -2328,11 +2328,11 @@ def test_reset_password_success(backend, nozomi_json_content_headers):
     assert r.status_code == 201
 
     def auth_headers(username, password):
+        auth_value = base64.b64encode(f"{username}:{password}".encode()).decode("ascii")  # noqa: E231
         return {
             "Content-Type": "application/json",
             "Accept": "application/taxii+json;version=2.1",
-            "Authorization": "Basic " + base64.b64encode(
-                f"{username}:{password}".encode()).decode("ascii"),
+            "Authorization": f"Basic {auth_value}",
         }
 
     # The user resets their own password (authenticating with the old one).
