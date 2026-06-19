@@ -44,3 +44,13 @@ class AuthMongodbBackend(AuthBackend):
         db = self.client[self.db_name]
         users = db['users']
         users.insert_one(user_info)
+
+    def update_user(self, username: str, user_info: dict):
+        db = self.client[self.db_name]
+        users = db['users']
+        users.update_one({"_id": username}, {"$set": user_info})
+
+    def delete_user(self, username: str):
+        db = self.client[self.db_name]
+        users = db['users']
+        users.delete_one({"_id": username})
