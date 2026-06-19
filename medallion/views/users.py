@@ -87,17 +87,10 @@ def reset_password():
     validate_version_parameter_in_accept_header()
 
     body = request.get_json()
-    err = None
 
-    if "password" not in body and "password_hash" not in body:
-        err = 'Missing both "password" and "password_hash" in request body.'
-
-    elif "password" in body and "password_hash" in body:
-        err = 'Provide either "password" or "password_hash", not both.'
-
-    if err:
+    if "password" not in body:
         return Response(
-            response=json.dumps({"error": err}),
+            response=json.dumps({"error": 'Missing "password" in request body.'}),
             status=400,
             mimetype=MEDIA_TYPE_TAXII_V21,
         )
@@ -124,14 +117,14 @@ def delete_update_user(user_id):
     """Custom endpoint to update or delete an existing user in the authentication backend (currently only MongoDB is supported)."""
     validate_version_parameter_in_accept_header()
 
-    if request.method == "DELETE":
-        if not current_app.auth_backend.get_user_by_username(user_id):
-            return Response(
-                response=json.dumps({"error": f'User with _id "{user_id}" does not exist.'}),
-                status=404,
-                mimetype=MEDIA_TYPE_TAXII_V21,
-            )
+    if not current_app.auth_backend.get_user_by_username(user_id):
+        return Response(
+            response=json.dumps({"error": f'User with _id "{user_id}" does not exist.'}),
+            status=404,
+            mimetype=MEDIA_TYPE_TAXII_V21,
+        )
 
+    if request.method == "DELETE":
         current_app.auth_backend.delete_user(user_id)
 
         return Response(
@@ -141,22 +134,14 @@ def delete_update_user(user_id):
 
     body = request.get_json()
 
-    if not current_app.auth_backend.get_user_by_username(user_id):
-        return Response(
-            response=json.dumps({"error": f'User with _id "{user_id}" does not exist.'}),
-            status=404,
-            mimetype=MEDIA_TYPE_TAXII_V21,
-        )
-
-    # Only update the fields that are explicitly provided in the request body,
-    # leaving any omitted field untouched.
+    # Only update the fields that are explicitly provided in the request body, leaving any omitted field untouched.
     user_info = {
-        "updated": datetime_to_string(datetime.datetime.now(datetime.UTC)),
+        field: body[field]
+        for field in ("company_name", "contact_name", "is_admin", "license")
+        if field in body
     }
 
-    for field in ("company_name", "contact_name", "is_admin", "license"):
-        if field in body:
-            user_info[field] = body[field]
+    user_info["updated"] = datetime_to_string(datetime.datetime.now(datetime.UTC))
 
     current_app.auth_backend.update_user(user_id, user_info)
     user = current_app.auth_backend.get_user_by_username(user_id)

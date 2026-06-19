@@ -2325,15 +2325,7 @@ def test_reset_password_no_valid_password(backend, nozomi_json_content_headers):
         headers=nozomi_json_content_headers,
     )
     assert r.status_code == 400
-    assert r.json == {"error": 'Missing both "password" and "password_hash" in request body.'}
-
-    r = backend.client.post(
-        test.USERS_EP + "reset_password/",
-        data=json.dumps({"password": "x", "password_hash": "y"}),
-        headers=nozomi_json_content_headers,
-    )
-    assert r.status_code == 400
-    assert r.json == {"error": 'Provide either "password" or "password_hash", not both.'}
+    assert r.json == {"error": 'Missing "password" in request body.'}
 
 
 def test_reset_password_success(backend, nozomi_json_content_headers):
