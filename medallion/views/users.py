@@ -1,4 +1,5 @@
 import datetime
+import logging
 
 from flask import Blueprint, Response, current_app, json, request
 from werkzeug.security import generate_password_hash
@@ -96,6 +97,8 @@ def reset_password():
         )
 
     username = auth.current_user()
+    logging.info(f'User "{username}" is resetting its password.')
+
     current_app.auth_backend.update_user(username, {
         "updated": datetime_to_string(datetime.datetime.now(datetime.UTC)),
         "password": get_db_password_from_request(body),
@@ -165,3 +168,33 @@ def get_db_password_from_request(body: dict) -> str:
         return body["password_hash"]
 
     return generate_password_hash(body["password"])
+
+
+def obfuscate_username(username: str) -> str:
+    """Obfuscate an email or username, keeping it partially readable.
+
+    Email-like values (containing "@" or ".") keep the first character and the
+    second half of the string, so the domain stays recognizable. Plain usernames
+    keep only the first and last characters. The hidden part is always replaced
+    by a fixed run of asterisks.
+
+    Examples:
+        corra.matteoatgmail.com -> c*****oatgmail.com
+        nozominetworks          -> n*****s
+
+    Args:
+        username (str): The email or username to obfuscate.
+    Returns:
+        str: The obfuscated email or username.
+    """
+    stars = "*" * 5
+
+    if len(username) < 2:
+        return username
+
+    if "@" in username:
+        email, domain = username.split("@")
+
+        return f"{email[0]}{stars}{email[-1]}@{domain}"
+
+    return f"{username[0]}{stars}{username[-1]}"
