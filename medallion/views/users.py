@@ -13,6 +13,9 @@ from ..common import MEDIA_TYPE_TAXII_V21, datetime_to_string
 
 users_bp = Blueprint("users", __name__)
 
+# Module-level logger
+log = logging.getLogger(__name__)
+
 
 @users_bp.route("/users/", methods=["GET", "POST"])
 @auth.login_required
@@ -97,7 +100,7 @@ def reset_password():
         )
 
     username = auth.current_user()
-    logging.info(f'User "{username}" is resetting its password.')
+    log.info(f'User "{username}" is resetting its password.')
 
     current_app.auth_backend.update_user(username, {
         "updated": datetime_to_string(datetime.datetime.now(datetime.UTC)),
