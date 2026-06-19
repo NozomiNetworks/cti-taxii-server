@@ -141,17 +141,10 @@ def delete_update_user(user_id):
 
     body = request.get_json()
 
-    err = None
-    status = 400
-
     if not current_app.auth_backend.get_user_by_username(user_id):
-        err = f'User with _id "{user_id}" does not exist.'
-        status = 404
-
-    if err:
         return Response(
-            response=json.dumps({"error": err}),
-            status=status,
+            response=json.dumps({"error": f'User with _id "{user_id}" does not exist.'}),
+            status=404,
             mimetype=MEDIA_TYPE_TAXII_V21,
         )
 

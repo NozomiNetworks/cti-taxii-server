@@ -2254,6 +2254,24 @@ def test_update_user_admin_user_success(backend, nozomi_json_content_headers):
     assert r.json['contact_name'] == 'Jane Doe'
 
 
+def test_update_user_admin_user_success_2(backend, nozomi_json_content_headers):
+    r = backend.client.put(
+        test.USERS_EP + "user2/",
+        data=json.dumps({
+            "is_admin": True,
+            "license": "mandiant",
+        }),
+        headers=nozomi_json_content_headers,
+    )
+    assert r.status_code == 200
+    assert r.json['_id'] == 'user2'
+    assert r.json['is_admin'] is True
+    assert r.json['license'] == 'mandiant'
+    assert r.json['updated'] is not None
+    assert r.json['company_name'] == 'Acme'
+    assert r.json['contact_name'] == 'Jane Doe'
+
+
 def test_delete_user_not_admin_user(backend):
     r = backend.client.delete(
         test.USERS_EP + "user1/",
