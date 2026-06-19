@@ -1,4 +1,5 @@
 import datetime
+import logging
 
 from flask import Blueprint, Response, current_app, json, request
 from werkzeug.security import generate_password_hash
@@ -11,6 +12,9 @@ from .. import auth
 from ..common import MEDIA_TYPE_TAXII_V21, datetime_to_string
 
 users_bp = Blueprint("users", __name__)
+
+# Module-level logger
+log = logging.getLogger(__name__)
 
 
 @users_bp.route("/users/", methods=["GET", "POST"])
@@ -76,6 +80,85 @@ def get_add_users():
         )
 
 
+@users_bp.route("/users/reset_password/", methods=["POST"])
+@auth.login_required
+@available_with_auth_backend_only
+def reset_password():
+    """Custom endpoint allowing the authenticated user to reset their own password.
+
+    The target user is always the currently authenticated user, so a user can only ever change their own password.
+    """
+    validate_version_parameter_in_accept_header()
+
+    body = request.get_json()
+
+    if "password" not in body:
+        return Response(
+            response=json.dumps({"error": 'Missing "password" in request body.'}),
+            status=400,
+            mimetype=MEDIA_TYPE_TAXII_V21,
+        )
+
+    username = auth.current_user()
+    log.info(f'User "{username}" is resetting its password.')
+
+    current_app.auth_backend.update_user(username, {
+        "updated": datetime_to_string(datetime.datetime.now(datetime.UTC)),
+        "password": get_db_password_from_request(body),
+    })
+    user = current_app.auth_backend.get_user_by_username(username)
+
+    return Response(
+        response=json.dumps(current_app.auth_backend.format_user_response(user)),
+        status=200,
+        mimetype=MEDIA_TYPE_TAXII_V21,
+    )
+
+
+@users_bp.route("/users/<string:user_id>/", methods=["PUT", "DELETE"])
+@auth.login_required
+@admin_only_endpoint
+@available_with_auth_backend_only
+def delete_update_user(user_id):
+    """Custom endpoint to update or delete an existing user in the authentication backend (currently only MongoDB is supported)."""
+    validate_version_parameter_in_accept_header()
+
+    if not current_app.auth_backend.get_user_by_username(user_id):
+        return Response(
+            response=json.dumps({"error": f'User with _id "{user_id}" does not exist.'}),
+            status=404,
+            mimetype=MEDIA_TYPE_TAXII_V21,
+        )
+
+    if request.method == "DELETE":
+        current_app.auth_backend.delete_user(user_id)
+
+        return Response(
+            status=204,
+            mimetype=MEDIA_TYPE_TAXII_V21,
+        )
+
+    body = request.get_json()
+
+    # Only update the fields that are explicitly provided in the request body, leaving any omitted field untouched.
+    user_info = {
+        field: body[field]
+        for field in ("company_name", "contact_name", "is_admin", "license")
+        if field in body
+    }
+
+    user_info["updated"] = datetime_to_string(datetime.datetime.now(datetime.UTC))
+
+    current_app.auth_backend.update_user(user_id, user_info)
+    user = current_app.auth_backend.get_user_by_username(user_id)
+
+    return Response(
+        response=json.dumps(current_app.auth_backend.format_user_response(user)),
+        status=200,
+        mimetype=MEDIA_TYPE_TAXII_V21,
+    )
+
+
 def get_db_password_from_request(body: dict) -> str:
     """Extract the password or password_hash from the request body.
 
@@ -88,3 +171,33 @@ def get_db_password_from_request(body: dict) -> str:
         return body["password_hash"]
 
     return generate_password_hash(body["password"])
+
+
+def obfuscate_username(username: str) -> str:
+    """Obfuscate an email or username, keeping it partially readable.
+
+    Email-like values (containing "@" or ".") keep the first character and the
+    second half of the string, so the domain stays recognizable. Plain usernames
+    keep only the first and last characters. The hidden part is always replaced
+    by a fixed run of asterisks.
+
+    Examples:
+        corra.matteoatgmail.com -> c*****oatgmail.com
+        nozominetworks          -> n*****s
+
+    Args:
+        username (str): The email or username to obfuscate.
+    Returns:
+        str: The obfuscated email or username.
+    """
+    stars = "*" * 5
+
+    if len(username) < 2:
+        return username
+
+    if "@" in username:
+        email, domain = username.split("@")
+
+        return f"{email[0]}{stars}{email[-1]}@{domain}"
+
+    return f"{username[0]}{stars}{username[-1]}"

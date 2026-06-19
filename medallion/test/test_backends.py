@@ -1,3 +1,4 @@
+import base64
 import copy
 import datetime
 import json
@@ -2208,6 +2209,167 @@ def test_create_user_admin_user_success_partial_fields(backend, nozomi_json_cont
     assert r.json['updated'] is None
     assert r.json['company_name'] == ''
     assert r.json['contact_name'] == ''
+
+
+def test_update_user_not_admin_user(backend):
+    r = backend.client.put(
+        test.USERS_EP + "user1/",
+        data=json.dumps({
+            "password": "newpassword",
+            "is_admin": False,
+            "license": "nozomi"
+        }),
+        headers=backend.test_user_nozomi_license_headers,
+    )
+    assert r.status_code == 403
+    assert r.text == "Endpoint forbidden"
+
+
+def test_update_user_admin_user_invalid_json(backend, nozomi_json_content_headers):
+    r = backend.client.put(
+        test.USERS_EP + "user1/",
+        data="this is not json",
+        headers=nozomi_json_content_headers,
+    )
+    assert r.status_code == 400
+
+
+def test_update_user_admin_user_success(backend, nozomi_json_content_headers):
+    r = backend.client.put(
+        test.USERS_EP + "user2/",
+        data=json.dumps({
+            "is_admin": True,
+            "license": "nozomi",
+        }),
+        headers=nozomi_json_content_headers,
+    )
+    assert r.status_code == 200
+    assert r.json['_id'] == 'user2'
+    assert r.json['is_admin'] is True
+    assert r.json['license'] == 'nozomi'
+    assert r.json['updated'] is not None
+    assert r.json['company_name'] is None
+    assert r.json['contact_name'] is None
+
+
+def test_update_user_admin_user_success_2(backend, nozomi_json_content_headers):
+    r = backend.client.put(
+        test.USERS_EP + "user2/",
+        data=json.dumps({
+            "is_admin": True,
+            "license": "mandiant",
+            "company_name": "Acme",
+            "contact_name": "Jane Doe"
+        }),
+        headers=nozomi_json_content_headers,
+    )
+    assert r.status_code == 200
+    assert r.json['_id'] == 'user2'
+    assert r.json['is_admin'] is True
+    assert r.json['license'] == 'mandiant'
+    assert r.json['updated'] is not None
+    assert r.json['company_name'] == 'Acme'
+    assert r.json['contact_name'] == 'Jane Doe'
+
+
+def test_delete_user_not_admin_user(backend):
+    r = backend.client.delete(
+        test.USERS_EP + "user1/",
+        headers=backend.test_user_nozomi_license_headers,
+    )
+    assert r.status_code == 403
+    assert r.text == "Endpoint forbidden"
+
+
+def test_delete_user_admin_user_nonexistent_user(backend, nozomi_json_content_headers):
+    r = backend.client.delete(
+        test.USERS_EP + "doesnotexist/",
+        headers=nozomi_json_content_headers,
+    )
+    assert r.status_code == 404
+    assert r.json == {"error": 'User with _id "doesnotexist" does not exist.'}
+
+
+def test_delete_user_admin_user_success(backend, nozomi_json_content_headers):
+    r = backend.client.delete(
+        test.USERS_EP + "user2/",
+        headers=nozomi_json_content_headers,
+    )
+    assert r.status_code == 204
+
+    # The user should no longer exist.
+    r = backend.client.delete(
+        test.USERS_EP + "user2/",
+        headers=nozomi_json_content_headers,
+    )
+    assert r.status_code == 404
+    assert r.json == {"error": 'User with _id "user2" does not exist.'}
+
+
+def test_reset_password_unauthenticated(backend):
+    r = backend.client.post(
+        test.USERS_EP + "reset_password/",
+        data=json.dumps({"password": "newpassword"}),
+        headers={
+            "Content-Type": "application/json",
+            "Accept": "application/taxii+json;version=2.1",
+        },
+    )
+    assert r.status_code == 401
+
+
+def test_reset_password_no_valid_password(backend, nozomi_json_content_headers):
+    r = backend.client.post(
+        test.USERS_EP + "reset_password/",
+        data=json.dumps({}),
+        headers=nozomi_json_content_headers,
+    )
+    assert r.status_code == 400
+    assert r.json == {"error": 'Missing "password" in request body.'}
+
+
+def test_reset_password_success(backend, nozomi_json_content_headers):
+    # Create a dedicated user so we don't mutate the shared module-scoped users.
+    r = backend.client.post(
+        test.USERS_EP,
+        data=json.dumps({"_id": "resetuser", "password": "InitialPass1"}),
+        headers=nozomi_json_content_headers,
+    )
+    assert r.status_code == 201
+
+    def auth_headers(username, password):
+        auth_value = base64.b64encode(f"{username}:{password}".encode()).decode("ascii")  # noqa: E231
+        return {
+            "Content-Type": "application/json",
+            "Accept": "application/taxii+json;version=2.1",
+            "Authorization": f"Basic {auth_value}",
+        }
+
+    # The user resets their own password (authenticating with the old one).
+    r = backend.client.post(
+        test.USERS_EP + "reset_password/",
+        data=json.dumps({"password": "NewPass2"}),
+        headers=auth_headers("resetuser", "InitialPass1"),
+    )
+    assert r.status_code == 200
+    assert r.json["_id"] == "resetuser"
+    assert r.json["updated"] is not None
+
+    # The old password no longer authenticates.
+    r = backend.client.post(
+        test.USERS_EP + "reset_password/",
+        data=json.dumps({"password": "AnotherPass3"}),
+        headers=auth_headers("resetuser", "InitialPass1"),
+    )
+    assert r.status_code == 401
+
+    # The new password works.
+    r = backend.client.post(
+        test.USERS_EP + "reset_password/",
+        data=json.dumps({"password": "AnotherPass3"}),
+        headers=auth_headers("resetuser", "NewPass2"),
+    )
+    assert r.status_code == 200
 
 
 @pytest.fixture

@@ -26,6 +26,14 @@ class AuthBackend(object):
         """Add a new user to the backend."""
         raise NotImplementedError()
 
+    def update_user(self, username: str, user_info: dict):
+        """Update an existing user in the backend."""
+        raise NotImplementedError()
+
+    def delete_user(self, username: str):
+        """Delete an existing user from the backend."""
+        raise NotImplementedError()
+
     def format_user_response(self, user: dict) -> dict:
         """Format the user object for API response, stripping the password and fill optional fields."""
         return {
