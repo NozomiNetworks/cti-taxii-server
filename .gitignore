@@ -132,3 +132,6 @@ Temporary Items
 .apdisk
 /configs/
 /data/
+
+# Local working data, not part of the project
+/.local/
