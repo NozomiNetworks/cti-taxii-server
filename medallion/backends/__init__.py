@@ -1,11 +1,11 @@
 import importlib
+from importlib.metadata import entry_points
 import inspect
 import logging
 import pkgutil
 import sys
 
 import environ
-import pkg_resources
 
 from . import base
 
@@ -24,7 +24,7 @@ for _, subname, _ in pkgutil.walk_packages(_paths):
 
 # Load all defined backend entry points - we orphan them after loading rather
 # than injecting them into this module, instead replying on `__init_subclass__`
-for ep in pkg_resources.iter_entry_points("medallion.backends"):
+for ep in entry_points(group="medallion.backends"):
     ep_obj = ep.load()
     if inspect.isclass(ep_obj):
         base.BackendRegistry.register(ep.name, ep_obj)

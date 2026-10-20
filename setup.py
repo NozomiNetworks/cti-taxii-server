@@ -56,7 +56,7 @@ setup(
         "packaging",
         "pytz",
         "six",
-        "setuptools",
+        "setuptools>=83.0.0",
         "rollbar",
         "opentelemetry-api",
         "opentelemetry-sdk",
@@ -81,7 +81,7 @@ setup(
             "sphinx-prompt",
         ],
         "mongo": [
-            "pymongo",
+            "pymongo>=4.18.2",
         ],
     },
     project_urls={
