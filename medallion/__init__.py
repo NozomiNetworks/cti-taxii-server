@@ -48,7 +48,7 @@ def _anonymized_request_path(path: str) -> str:
     return path
 
 
-def _scrub_span_target(span, status, response_headers):
+def _scrub_span_target(span: trace.Span | None, status: str, response_headers: list) -> None:
     """Anonymize username-bearing span attributes before export (ADR-001).
 
     The WSGI instrumentation records the raw request URI verbatim
@@ -70,14 +70,14 @@ def _scrub_span_target(span, status, response_headers):
 auth = HTTPBasicAuth()
 
 
-def register_access_log_hooks(app):
+def register_access_log_hooks(app: Flask) -> Flask:
     """Register the access-log hooks on an application (RFC-001 §3.2)."""
     @app.before_request
-    def _start_request_timer():
+    def _start_request_timer() -> None:
         g.start_time = time.perf_counter()
 
     @app.after_request
-    def _log_access(response):
+    def _log_access(response: Response) -> Response:
         """Emit one access-log line when the request completes."""
         if request.path.rstrip("/") == "/ping":
             return response

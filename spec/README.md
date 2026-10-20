@@ -71,6 +71,8 @@ RFCs:
 | RFC-001 | Structured logging, access/audit logs, and quiet init | Implemented |
 | RFC-002 | Tolerate missing trailing slash on TAXII endpoints | Implemented |
 
+RFC-001 amended 2026-10-19 (PR #37 review): JSON logging is the default; `LOG_FORMAT=text` opts out.
+
 ADRs:
 
 | ID | Title | Status |

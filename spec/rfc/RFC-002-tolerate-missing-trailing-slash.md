@@ -5,7 +5,7 @@
 | Status        | Implemented                                    |
 | Author        | Federico Maggi                                 |
 | Created       | 2026-10-19                                     |
-| Related tasks | TIA-NNN (to be filed)                          |
+| Related tasks | TIA-819                                        |
 | Scheduled     | Deferral lifted at acceptance — implemented together with RFC-001 |
 
 ## 1. Context

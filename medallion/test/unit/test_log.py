@@ -6,9 +6,38 @@ from flask import Flask
 import pytest
 
 from medallion import _anonymized_request_path, register_access_log_hooks
-from medallion.log import JsonFormatter, TextFormatter, anonymize_user
+from medallion.log import (
+    JsonFormatter, TextFormatter, anonymize_user, configure_logging
+)
 
 APPLICATION_INSTANCE_LOG_ACCESS = logging.getLogger("medallion.access")
+
+
+def _medallion_root_handlers() -> list:
+    return [
+        handler for handler in logging.getLogger().handlers
+        if isinstance(handler.formatter, (JsonFormatter, TextFormatter))
+    ]
+
+
+def test_configure_logging_defaults_to_json(monkeypatch):
+    # The service only runs containerized; JSON is the default (RFC-001 §4,
+    # amended), LOG_FORMAT=text selects the human format.
+    monkeypatch.delenv("LOG_FORMAT", raising=False)
+    configure_logging(logging.INFO)
+
+    handlers = _medallion_root_handlers()
+    assert len(handlers) == 1
+    assert isinstance(handlers[0].formatter, JsonFormatter)
+
+
+def test_configure_logging_text_opt_in(monkeypatch):
+    monkeypatch.setenv("LOG_FORMAT", "text")
+    configure_logging(logging.INFO)
+
+    handlers = _medallion_root_handlers()
+    assert len(handlers) == 1
+    assert isinstance(handlers[0].formatter, TextFormatter)
 
 
 def test_anonymize_user_rejects_none():

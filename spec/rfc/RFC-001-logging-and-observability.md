@@ -5,7 +5,11 @@
 | Status        | Implemented                    |
 | Author        | Federico Maggi                 |
 | Created       | 2026-10-19                     |
-| Related tasks | TIA-NNN (to be filed)          |
+| Related tasks | TIA-819                         |
+
+> **Amendment (2026-10-19, PR #37 review):** JSON records are now the **default**; the
+> human-readable format moves behind `LOG_FORMAT=text`. Rationale: the service only ever
+> runs containerized, where every stdout consumer is a log pipeline. §4 updated.
 
 ## 1. Context
 
@@ -159,7 +163,7 @@ stable pseudonymous correlation, revisit with a keyed-hash approach — do not a
 
 ## 4. API / Contract
 
-**JSON log record** (all records; `LOG_FORMAT=json`):
+**JSON log record** (all records; `LOG_FORMAT=text` opts out):
 
 | Field | Type | Present | Notes |
 |---|---|---|---|
@@ -187,8 +191,8 @@ Examples (one line each):
  "action": "create_user", "actor": "no****", "target": "us****", "outcome": 201}
 ```
 
-**Environment variables:** `LOG_FORMAT=json` enables JSON records; unset or any other value
-keeps the human format.
+**Environment variables:** JSON records are the default; `LOG_FORMAT=text` selects the
+human-readable format.
 
 ## 5. Open Questions
 

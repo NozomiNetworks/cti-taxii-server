@@ -52,7 +52,7 @@ class JsonFormatter(logging.Formatter):
     filter on them directly.
     """
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         payload = {
             "ts": datetime.now(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z"),
             "level": record.levelname,
@@ -70,7 +70,7 @@ class JsonFormatter(logging.Formatter):
 class TextFormatter(logging.Formatter):
     """Human-readable format; caller-provided extras are appended as key=value."""
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         message = super().format(record)
         extras = [
             f"{key}={value}"
@@ -82,20 +82,23 @@ class TextFormatter(logging.Formatter):
         return message
 
 
-def configure_logging(level):
-    """Configure the root logger once: one console handler, JSON or text per LOG_FORMAT.
+def configure_logging(level: str | int) -> None:
+    """Configure the root logger once: one console handler, JSON by default.
 
-    Re-invocations replace the medallion handler instead of accumulating
-    duplicates (RFC-001 §3.4).
+    The service only ever runs containerized, where stdout feeds a log
+    pipeline, so JSON is the default and ``LOG_FORMAT=text`` selects the
+    human-readable format instead (RFC-001 §4, amended). Re-invocations
+    replace the medallion handler instead of accumulating duplicates
+    (RFC-001 §3.4).
 
     Args:
         level (str | int): The level for the root logger.
     """
     handler = logging.StreamHandler()
-    if os.environ.get("LOG_FORMAT", "") == "json":
-        handler.setFormatter(JsonFormatter())
-    else:
+    if os.environ.get("LOG_FORMAT", "") == "text":
         handler.setFormatter(TextFormatter("[%(name)s] [%(levelname)-8s] [%(asctime)s] %(message)s"))
+    else:
+        handler.setFormatter(JsonFormatter())
     root = logging.getLogger()
     for existing in list(root.handlers):
         if isinstance(existing.formatter, (JsonFormatter, TextFormatter)):
