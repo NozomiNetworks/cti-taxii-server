@@ -2,7 +2,7 @@
 
 | Field         | Value                          |
 |---------------|--------------------------------|
-| Status        | Accepted                       |
+| Status        | Implemented                    |
 | Author        | Federico Maggi                 |
 | Created       | 2026-10-19                     |
 | Related tasks | TIA-NNN (to be filed)          |

@@ -68,8 +68,8 @@ RFCs:
 
 | ID | Title | Status |
 |----|-------|--------|
-| RFC-001 | Structured logging, access/audit logs, and quiet init | Accepted |
-| RFC-002 | Tolerate missing trailing slash on TAXII endpoints | Accepted |
+| RFC-001 | Structured logging, access/audit logs, and quiet init | Implemented |
+| RFC-002 | Tolerate missing trailing slash on TAXII endpoints | Implemented |
 
 ADRs:
 
