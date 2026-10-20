@@ -158,24 +158,24 @@ def test_confcheck(mock_app, subtests):
     """
     with subtests.test(msg="--conf-check omitted"):
         with mock.patch(
-            "medallion.scripts.run.log"
-        ) as mock_logger, mock.patch(
+            "medallion.scripts.run.configure_logging"
+        ) as mock_configure, mock.patch(
             "sys.argv", ["ARGV0", "-c", "medallion/test/data/config.json"]
         ):
             medallion.scripts.run.main()
         # default `--log-level` value
-        mock_logger.setLevel.assert_called_once_with("WARN")
+        mock_configure.assert_called_once_with("WARN")
         assert mock_app.call_count == 1
     mock_app.reset_mock()
 
     with subtests.test(msg="--conf-check provided without a value"):
         with mock.patch(
-            "medallion.scripts.run.log"
-        ) as mock_logger, mock.patch(
+            "medallion.scripts.run.configure_logging"
+        ) as mock_configure, mock.patch(
             "sys.argv", ["ARGV0", "--conf-check", "-c", "medallion/test/data/config.json"]
         ):
             medallion.scripts.run.main()
-        mock_logger.setLevel.assert_called_once_with(logging.DEBUG)
+        mock_configure.assert_called_once_with(logging.DEBUG)
         mock_app.assert_not_called()
     mock_app.reset_mock()
 
@@ -194,12 +194,12 @@ def test_confcheck(mock_app, subtests):
 
     with subtests.test(msg="--conf-check overrides --log-level"):
         with mock.patch(
-            "medallion.scripts.run.log"
-        ) as mock_logger, mock.patch(
+            "medallion.scripts.run.configure_logging"
+        ) as mock_configure, mock.patch(
             "sys.argv", ["ARGV0", "--conf-check", "--log-level=CRITICAL", "-c", "medallion/test/data/config.json"]
         ):
             medallion.scripts.run.main()
-        mock_logger.setLevel.assert_called_once_with(logging.DEBUG)
+        mock_configure.assert_called_once_with(logging.DEBUG)
         mock_app.assert_not_called()
 
 

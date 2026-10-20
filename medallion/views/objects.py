@@ -11,6 +11,7 @@ from .. import auth
 from ..auth_service import AuthService
 from ..common import MEDIA_TYPE_TAXII_V21, get_timestamp
 from ..exceptions import ProcessingError
+from ..log import anonymize_user
 from .discovery import api_root_exists
 
 objects_bp = Blueprint("objects", __name__)
@@ -174,7 +175,7 @@ def get_or_delete_object(api_root, collection_id, object_id):
 
     """
     # TODO: Check if user has access to read or write objects in collection - right now just check for permissions on the collection.
-    log.info(f"get_or_delete_object current user: {auth.current_user()}")
+    log.info(f"get_or_delete_object current user: {anonymize_user(auth.current_user())}")
     validate_version_parameter_in_accept_header()
     api_root_exists(api_root)
     collection_exists(api_root, collection_id)

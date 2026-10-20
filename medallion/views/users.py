@@ -10,11 +10,30 @@ from . import (
 )
 from .. import auth
 from ..common import MEDIA_TYPE_TAXII_V21, datetime_to_string
+from ..log import anonymize_user
 
 users_bp = Blueprint("users", __name__)
 
 # Module-level logger
 log = logging.getLogger(__name__)
+
+# Audit trail for user administration actions (RFC-001 §3.3); identities are
+# anonymized per ADR-001.
+audit_log = logging.getLogger("medallion.audit")
+audit_log.setLevel(logging.INFO)
+
+
+def _audit(action: str, target: str, outcome: int) -> None:
+    audit_log.info(
+        "audit %s", action,
+        extra={
+            "event": "audit",
+            "action": action,
+            "actor": anonymize_user(auth.current_user() or ""),
+            "target": anonymize_user(target),
+            "outcome": outcome,
+        },
+    )
 
 
 @users_bp.route("/users/", methods=["GET", "POST"])
@@ -54,11 +73,14 @@ def get_add_users():
             err = 'Provide either "password" or "password_hash", not both.'
 
         if err:
-            return Response(
+            response = Response(
                 response=json.dumps({"error": err}),
                 status=status,
                 mimetype=MEDIA_TYPE_TAXII_V21,
             )
+            if status == 409:
+                _audit("create_user", body["_id"], status)
+            return response
 
         user_info = {
             "company_name": body.get("company_name", ""),
@@ -72,12 +94,13 @@ def get_add_users():
 
         current_app.auth_backend.add_user(user_info)
         user = current_app.auth_backend.get_user_by_username(body["_id"])
-
-        return Response(
+        response = Response(
             response=json.dumps(current_app.auth_backend.format_user_response(user)),
             status=201,
             mimetype=MEDIA_TYPE_TAXII_V21,
         )
+        _audit("create_user", body["_id"], 201)
+        return response
 
 
 @users_bp.route("/users/reset_password/", methods=["POST"])
@@ -100,7 +123,7 @@ def reset_password():
         )
 
     username = auth.current_user()
-    log.info(f'User "{username}" is resetting its password.')
+    log.info('User "%s" is resetting their password.', anonymize_user(username))
 
     current_app.auth_backend.update_user(username, {
         "updated": datetime_to_string(datetime.datetime.now(datetime.UTC)),
@@ -132,11 +155,12 @@ def delete_update_user(user_id):
 
     if request.method == "DELETE":
         current_app.auth_backend.delete_user(user_id)
-
-        return Response(
+        response = Response(
             status=204,
             mimetype=MEDIA_TYPE_TAXII_V21,
         )
+        _audit("delete_user", user_id, 204)
+        return response
 
     body = request.get_json()
 
@@ -151,12 +175,13 @@ def delete_update_user(user_id):
 
     current_app.auth_backend.update_user(user_id, user_info)
     user = current_app.auth_backend.get_user_by_username(user_id)
-
-    return Response(
+    response = Response(
         response=json.dumps(current_app.auth_backend.format_user_response(user)),
         status=200,
         mimetype=MEDIA_TYPE_TAXII_V21,
     )
+    _audit("update_user", user_id, 200)
+    return response
 
 
 def get_db_password_from_request(body: dict) -> str:
@@ -171,33 +196,3 @@ def get_db_password_from_request(body: dict) -> str:
         return body["password_hash"]
 
     return generate_password_hash(body["password"])
-
-
-def obfuscate_username(username: str) -> str:
-    """Obfuscate an email or username, keeping it partially readable.
-
-    Email-like values (containing "@" or ".") keep the first character and the
-    second half of the string, so the domain stays recognizable. Plain usernames
-    keep only the first and last characters. The hidden part is always replaced
-    by a fixed run of asterisks.
-
-    Examples:
-        corra.matteoatgmail.com -> c*****oatgmail.com
-        nozominetworks          -> n*****s
-
-    Args:
-        username (str): The email or username to obfuscate.
-    Returns:
-        str: The obfuscated email or username.
-    """
-    stars = "*" * 5
-
-    if len(username) < 2:
-        return username
-
-    if "@" in username:
-        email, domain = username.split("@")
-
-        return f"{email[0]}{stars}{email[-1]}@{domain}"
-
-    return f"{username[0]}{stars}{username[-1]}"

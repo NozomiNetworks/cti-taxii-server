@@ -4,15 +4,40 @@ import logging
 import os
 import textwrap
 
+from flask import cli as flask_cli
+import rollbar
+
 from medallion import (
-    __version__, connect_to_backend, register_blueprints, set_config
+    __version__, connect_to_backend, init_observability, register_blueprints,
+    set_config
 )
 from medallion.common import (
     APPLICATION_INSTANCE, get_application_instance_config_values
 )
 import medallion.config
+from medallion.log import configure_logging
 
 log = logging.getLogger("medallion")
+
+
+def _check_auth_source(rollbar_ready: bool) -> None:
+    """Report the configured authentication source at startup (RFC-001 §3.5)."""
+    if hasattr(APPLICATION_INSTANCE, "auth_backend"):
+        return
+
+    if hasattr(APPLICATION_INSTANCE, "users_config"):
+        log.warning(
+            "Static user credentials are configured in plain text. "
+            "Prefer the mongodb auth backend."
+        )
+        return
+
+    log.error("No authentication source configured; all requests will fail authentication.")
+    if rollbar_ready:
+        rollbar.report_message(
+            "No authentication source configured; all requests will fail authentication.",
+            "error",
+        )
 
 
 class NewlinesHelpFormatter(argparse.RawDescriptionHelpFormatter):
@@ -119,7 +144,9 @@ def main():
     # Configuration checking sets up debug logging and does not run the app
     if medallion_args.conf_check:
         medallion_args.log_level = logging.DEBUG
-    log.setLevel(medallion_args.log_level)
+    # Logging is configured once here, on the root logger, so third-party
+    # loggers honor --log-level too (RFC-001 §3.1)
+    configure_logging(medallion_args.log_level)
 
     configuration = medallion.config.load_config(
         medallion_args.CONFIG_PATH or medallion_args.conf_file,
@@ -133,10 +160,14 @@ def main():
 
     APPLICATION_INSTANCE.medallion_backend = connect_to_backend(
         get_application_instance_config_values(APPLICATION_INSTANCE, "backend"))
+    rollbar_ready = init_observability(APPLICATION_INSTANCE)
+    _check_auth_source(rollbar_ready)
     if (not APPLICATION_INSTANCE.blueprints):
         register_blueprints(APPLICATION_INSTANCE)
 
     if not medallion_args.conf_check:
+        # Container runtimes timestamp stdout themselves; flask's banner is noise (RFC-001 §3.4)
+        flask_cli.show_server_banner = lambda *args, **kwargs: None
         APPLICATION_INSTANCE.run(
             host=medallion_args.host,
             port=medallion_args.port,
