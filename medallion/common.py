@@ -9,6 +9,9 @@ import pytz
 from six import iteritems
 
 APPLICATION_INSTANCE = Flask("medallion")
+# TAXII clients may omit the trailing slash; serve both URL forms directly
+# instead of paying a 308 redirect round trip per call (RFC-002).
+APPLICATION_INSTANCE.url_map.strict_slashes = False
 MEDIA_TYPE_TAXII_ANY = "application/taxii+json"
 MEDIA_TYPE_TAXII_V21 = "{media};version=2.1".format(media=MEDIA_TYPE_TAXII_ANY)
 
